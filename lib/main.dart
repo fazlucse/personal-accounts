@@ -1,538 +1,588 @@
 import 'package:flutter/material.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
 import 'package:intl/intl.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:csv/csv.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart' as path;
 
-void main() {
-  runApp(const ExpenseTrackerApp());
+class ResponsiveLayout2 {
+  static int getGridColumns(BuildContext context) {
+    double width = MediaQuery.of(context).size.width;
+
+    if (width >= 1200) {
+      return 3; // Desktop - 3 columns
+    } else if (width >= 600) {
+      return 3; // Tablet - 3 columns
+    } else {
+      return 1; // Mobile - 1 column (stacked)
+    }
+  }
+
+  static double getCardAspectRatio(BuildContext context) {
+    double width = MediaQuery.of(context).size.width;
+
+    if (width >= 1200) {
+      return 2.5; // Desktop - wider cards
+    } else if (width >= 600) {
+      return 2.0; // Tablet - medium cards
+    } else {
+      return 3.0; // Mobile - shorter cards (stacked view)
+    }
+  }
 }
 
-class ExpenseTrackerApp extends StatelessWidget {
-  const ExpenseTrackerApp({Key? key}) : super(key: key);
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const FinanceTrackerApp());
+}
+
+class FinanceTrackerApp extends StatelessWidget {
+  const FinanceTrackerApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Expense Tracker',
-      theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
-      home: const ExpenseTrackerHome(),
+      title: 'Finance Tracker',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        useMaterial3: true,
+      ),
+      home: const FinanceTrackerHome(),
     );
   }
 }
 
-// Database Helper
+class ResponsiveLayout {
+  static bool isMobile(BuildContext context) =>
+      MediaQuery.of(context).size.width < 600;
+
+  static bool isTablet(BuildContext context) =>
+      MediaQuery.of(context).size.width >= 600 &&
+      MediaQuery.of(context).size.width < 1200;
+
+  static bool isDesktop(BuildContext context) =>
+      MediaQuery.of(context).size.width >= 1200;
+
+  static double getMargin(BuildContext context) {
+    if (isDesktop(context)) return 24;
+    if (isTablet(context)) return 20;
+    return 16;
+  }
+
+  static double getPadding(BuildContext context) {
+    if (isDesktop(context)) return 20;
+    if (isTablet(context)) return 16;
+    return 12;
+  }
+
+  static int getGridColumns(BuildContext context) {
+    if (isDesktop(context)) return 3;
+    if (isTablet(context)) return 2;
+    return 1;
+  }
+}
+
 class DatabaseHelper {
-  static final DatabaseHelper instance = DatabaseHelper._init();
+  static final DatabaseHelper _instance = DatabaseHelper._internal();
   static Database? _database;
 
-  DatabaseHelper._init();
+  DatabaseHelper._internal();
+
+  factory DatabaseHelper() {
+    return _instance;
+  }
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('expense_tracker.db');
+    _database ??= await _initDatabase();
     return _database!;
   }
 
-  Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
-
-    return await openDatabase(path, version: 1, onCreate: _createDB);
-  }
-
-  Future<void> _createDB(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE transactions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        type TEXT NOT NULL,
-        amount REAL NOT NULL,
-        category TEXT NOT NULL,
-        date TEXT NOT NULL,
-        description TEXT
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE categories (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        type TEXT NOT NULL
-      )
-    ''');
-
-    // Insert default categories
-    await db.insert('categories', {'name': 'Rent', 'type': 'expense'});
-    await db.insert('categories', {'name': 'Food', 'type': 'expense'});
-    await db.insert('categories', {'name': 'Transport', 'type': 'expense'});
-    await db.insert('categories', {'name': 'Utilities', 'type': 'expense'});
-    await db.insert('categories', {'name': 'Entertainment', 'type': 'expense'});
-    await db.insert('categories', {'name': 'Healthcare', 'type': 'expense'});
-    await db.insert('categories', {'name': 'Shopping', 'type': 'expense'});
-    await db.insert('categories', {'name': 'Education', 'type': 'expense'});
-
-    await db.insert('categories', {'name': 'Salary', 'type': 'income'});
-    await db.insert('categories', {'name': 'Freelance', 'type': 'income'});
-    await db.insert('categories', {'name': 'Investment', 'type': 'income'});
-    await db.insert('categories', {'name': 'Business', 'type': 'income'});
-    await db.insert('categories', {'name': 'Other', 'type': 'income'});
-  }
-
-  Future<int> insertTransaction(Map<String, dynamic> transaction) async {
-    final db = await database;
-    return await db.insert('transactions', transaction);
-  }
-
-  Future<List<Map<String, dynamic>>> getTransactions() async {
-    final db = await database;
-    return await db.query('transactions', orderBy: 'date DESC');
-  }
-
-  Future<int> deleteTransaction(int id) async {
-    final db = await database;
-    return await db.delete('transactions', where: 'id = ?', whereArgs: [id]);
-  }
-
-  Future<int> insertCategory(String name, String type) async {
-    final db = await database;
-    return await db.insert('categories', {'name': name, 'type': type});
-  }
-
-  Future<List<Map<String, dynamic>>> getCategories(String type) async {
-    final db = await database;
-    return await db.query('categories', where: 'type = ?', whereArgs: [type]);
-  }
-
-  Future<void> importData(List<Map<String, dynamic>> transactions) async {
-    final db = await database;
-    final batch = db.batch();
-
-    for (var transaction in transactions) {
-      batch.insert('transactions', transaction);
-    }
-
-    await batch.commit();
-  }
-
-  Future<void> close() async {
-    final db = await database;
-    db.close();
-  }
-}
-
-// Transaction Model
-class Transaction {
-  final int? id;
-  final String type;
-  final double amount;
-  final String category;
-  final String date;
-  final String? description;
-
-  Transaction({
-    this.id,
-    required this.type,
-    required this.amount,
-    required this.category,
-    required this.date,
-    this.description,
-  });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'type': type,
-      'amount': amount,
-      'category': category,
-      'date': date,
-      'description': description,
-    };
-  }
-
-  factory Transaction.fromMap(Map<String, dynamic> map) {
-    return Transaction(
-      id: map['id'],
-      type: map['type'],
-      amount: map['amount'],
-      category: map['category'],
-      date: map['date'],
-      description: map['description'],
+  Future<Database> _initDatabase() async {
+    String dbPath = path.join(await getDatabasesPath(), 'finance_tracker.db');
+    return openDatabase(
+      dbPath,
+      version: 1,
+      onCreate: (db, version) async {
+        await db.execute(
+          'CREATE TABLE transactions('
+          'id INTEGER PRIMARY KEY,'
+          'type TEXT,'
+          'category TEXT,'
+          'amount REAL,'
+          'date TEXT,'
+          'notes TEXT,'
+          'recurring INTEGER,'
+          'tags TEXT'
+          ')',
+        );
+        await db.execute(
+          'CREATE TABLE users('
+          'id INTEGER PRIMARY KEY,'
+          'name TEXT,'
+          'email TEXT,'
+          'phone TEXT,'
+          'occupation TEXT'
+          ')',
+        );
+        await db.execute(
+          'CREATE TABLE budgets('
+          'category TEXT PRIMARY KEY,'
+          'amount REAL'
+          ')',
+        );
+      },
     );
   }
+
+  Future<void> insertTransaction(Transaction transaction) async {
+    final db = await database;
+    await db.insert(
+      'transactions',
+      {
+        'id': transaction.id,
+        'type': transaction.type,
+        'category': transaction.category,
+        'amount': transaction.amount,
+        'date': transaction.date,
+        'notes': transaction.notes,
+        'recurring': transaction.recurring ? 1 : 0,
+        'tags': transaction.tags.join(','),
+      },
+    );
+  }
+
+  Future<List<Transaction>> getTransactions() async {
+    final db = await database;
+    final maps = await db.query('transactions');
+    return List.generate(maps.length, (i) {
+      return Transaction(
+        id: maps[i]['id'] as int,
+        type: maps[i]['type'] as String,
+        category: maps[i]['category'] as String,
+        amount: maps[i]['amount'] as double,
+        date: maps[i]['date'] as String,
+        notes: maps[i]['notes'] as String,
+        recurring: (maps[i]['recurring'] as int) == 1,
+        tags: (maps[i]['tags'] as String).split(',').where((t) => t.isNotEmpty).toList(),
+      );
+    });
+  }
+
+  Future<void> deleteTransaction(int id) async {
+    final db = await database;
+    await db.delete('transactions', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> insertUser(User user) async {
+    final db = await database;
+    await db.insert(
+      'users',
+      {
+        'id': user.id,
+        'name': user.name,
+        'email': user.email,
+        'phone': user.phone,
+        'occupation': user.occupation,
+      },
+    );
+  }
+
+  Future<List<User>> getUsers() async {
+    final db = await database;
+    final maps = await db.query('users');
+    return List.generate(maps.length, (i) {
+      return User(
+        id: maps[i]['id'] as int,
+        name: maps[i]['name'] as String,
+        email: maps[i]['email'] as String,
+        phone: maps[i]['phone'] as String,
+        occupation: maps[i]['occupation'] as String,
+      );
+    });
+  }
+
+  Future<void> insertBudget(String category, double amount) async {
+    final db = await database;
+    await db.insert(
+      'budgets',
+      {'category': category, 'amount': amount},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<Map<String, double>> getBudgets() async {
+    final db = await database;
+    final maps = await db.query('budgets');
+    final budgets = <String, double>{};
+    for (var map in maps) {
+      budgets[map['category'] as String] = map['amount'] as double;
+    }
+    return budgets;
+  }
 }
 
-class ExpenseTrackerHome extends StatefulWidget {
-  const ExpenseTrackerHome({Key? key}) : super(key: key);
+class Transaction {
+  final int id;
+  final String type;
+  final String category;
+  final double amount;
+  final String date;
+  final String notes;
+  final bool recurring;
+  final List<String> tags;
+
+  Transaction({
+    required this.id,
+    required this.type,
+    required this.category,
+    required this.amount,
+    required this.date,
+    required this.notes,
+    required this.recurring,
+    required this.tags,
+  });
+}
+
+class User {
+  final int id;
+  String name;
+  String email;
+  String phone;
+  String occupation;
+
+  User({
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.phone,
+    required this.occupation,
+  });
+}
+
+class FinanceTrackerHome extends StatefulWidget {
+  const FinanceTrackerHome({Key? key}) : super(key: key);
 
   @override
-  State<ExpenseTrackerHome> createState() => _ExpenseTrackerHomeState();
+  State<FinanceTrackerHome> createState() => _FinanceTrackerHomeState();
 }
 
-class _ExpenseTrackerHomeState extends State<ExpenseTrackerHome> {
-  int _currentIndex = 0;
-  List<Transaction> _transactions = [];
-  List<String> _expenseCategories = [];
-  List<String> _incomeCategories = [];
+class _FinanceTrackerHomeState extends State<FinanceTrackerHome> {
+  int _selectedIndex = 0;
+  bool _darkMode = false;
+  String _currency = 'USD';
+  int _selectedUserIndex = 0;
+
+  List<Transaction> transactions = [];
+  List<String> incomeCategories = [];
+  List<String> expenseCategories = [];
+  Map<String, double> budgets = {};
+  List<User> users = [];
+  final DatabaseHelper dbHelper = DatabaseHelper();
+
+  String _filterCategory = 'All';
+  String _filterType = 'All';
+  String _filterStartDate = '';
+  String _filterEndDate = '';
+
+  final Map<String, String> currencySymbols = {
+    'USD': '\$',
+    'EUR': '€',
+    'GBP': '£',
+    'INR': '₹'
+  };
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _initializeData();
   }
 
-  Future<void> _loadData() async {
-    final transactions = await DatabaseHelper.instance.getTransactions();
-    final expenseCats = await DatabaseHelper.instance.getCategories('expense');
-    final incomeCats = await DatabaseHelper.instance.getCategories('income');
+  void _initializeData() async {
+    transactions = await dbHelper.getTransactions();
+    users = await dbHelper.getUsers();
+    budgets = await dbHelper.getBudgets();
 
-    setState(() {
-      _transactions = transactions.map((t) => Transaction.fromMap(t)).toList();
-      _expenseCategories = expenseCats.map((c) => c['name'] as String).toList();
-      _incomeCategories = incomeCats.map((c) => c['name'] as String).toList();
-    });
-  }
+    incomeCategories = ['Salary', 'Freelance', 'Investment', 'Bonus'];
+    expenseCategories = ['Groceries', 'Transport', 'Utilities', 'Entertainment', 'Healthcare'];
 
-  double get totalIncome => _transactions
-      .where((t) => t.type == 'income')
-      .fold(0, (sum, t) => sum + t.amount);
-
-  double get totalExpense => _transactions
-      .where((t) => t.type == 'expense')
-      .fold(0, (sum, t) => sum + t.amount);
-
-  double get balance => totalIncome - totalExpense;
-
-  Map<String, double> get categoryExpenses {
-    final Map<String, double> result = {};
-    for (var t in _transactions.where((t) => t.type == 'expense')) {
-      result[t.category] = (result[t.category] ?? 0) + t.amount;
-    }
-    return result;
-  }
-
-  Map<String, double> get categoryIncomes {
-    final Map<String, double> result = {};
-    for (var t in _transactions.where((t) => t.type == 'income')) {
-      result[t.category] = (result[t.category] ?? 0) + t.amount;
-    }
-    return result;
-  }
-
-  Future<void> _exportData() async {
-    try {
-      final transactions = await DatabaseHelper.instance.getTransactions();
-
-      List<List<dynamic>> rows = [
-        ['ID', 'Type', 'Amount', 'Category', 'Date', 'Description'],
+    if (transactions.isEmpty) {
+      final defaultTransactions = [
+        Transaction(
+          id: 1,
+          type: 'income',
+          category: 'Salary',
+          amount: 5000,
+          date: '2025-10-10',
+          notes: 'Monthly salary',
+          recurring: true,
+          tags: ['work'],
+        ),
+        Transaction(
+          id: 2,
+          type: 'expense',
+          category: 'Groceries',
+          amount: 250,
+          date: '2025-10-09',
+          notes: 'Weekly shopping',
+          recurring: false,
+          tags: ['food'],
+        ),
+        Transaction(
+          id: 3,
+          type: 'expense',
+          category: 'Transport',
+          amount: 80,
+          date: '2025-10-08',
+          notes: 'Gas',
+          recurring: true,
+          tags: ['transport'],
+        ),
       ];
-
-      for (var t in transactions) {
-        rows.add([
-          t['id'],
-          t['type'],
-          t['amount'],
-          t['category'],
-          t['date'],
-          t['description'] ?? '',
-        ]);
+      for (var t in defaultTransactions) {
+        await dbHelper.insertTransaction(t);
       }
-
-      String csv = const ListToCsvConverter().convert(rows);
-
-      final directory = await getApplicationDocumentsDirectory();
-      final path = '${directory.path}/expense_tracker_export.csv';
-      final file = File(path);
-      await file.writeAsString(csv);
-
-      await Share.shareXFiles([XFile(path)], text: 'Expense Tracker Data');
-
-      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-        const SnackBar(content: Text('Data exported successfully!')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context as BuildContext,
-      ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+      transactions = defaultTransactions;
     }
+
+    if (users.isEmpty) {
+      final defaultUsers = [
+        User(
+          id: 0,
+          name: 'John Doe',
+          email: 'john@example.com',
+          phone: '555-0123',
+          occupation: 'Software Engineer',
+        ),
+        User(
+          id: 1,
+          name: 'Jane Smith',
+          email: 'jane@example.com',
+          phone: '555-0124',
+          occupation: 'Designer',
+        ),
+      ];
+      for (var u in defaultUsers) {
+        await dbHelper.insertUser(u);
+      }
+      users = defaultUsers;
+    }
+
+    if (budgets.isEmpty) {
+      budgets = {
+        'Groceries': 500,
+        'Transport': 200,
+        'Entertainment': 300,
+      };
+      for (var entry in budgets.entries) {
+        await dbHelper.insertBudget(entry.key, entry.value);
+      }
+    }
+
+    if (mounted) setState(() {});
   }
 
-  Future<void> _importData() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['csv'],
-      );
-
-      if (result != null) {
-        final file = File(result.files.single.path!);
-        final csvString = await file.readAsString();
-
-        List<List<dynamic>> rows = const CsvToListConverter().convert(
-          csvString,
-        );
-
-        if (rows.length > 1) {
-          rows.removeAt(0); // Remove header
-
-          for (var row in rows) {
-            if (row.length >= 5) {
-              await DatabaseHelper.instance.insertTransaction({
-                'type': row[1],
-                'amount': double.tryParse(row[2].toString()) ?? 0,
-                'category': row[3],
-                'date': row[4],
-                'description': row.length > 5 ? row[5] : null,
-              });
-            }
-          }
-
-          await _loadData();
-
-          ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-            const SnackBar(content: Text('Data imported successfully!')),
-          );
-        }
+  List<Transaction> _getFilteredTransactions() {
+    return transactions.where((t) {
+      bool dateMatch = true;
+      if (_filterStartDate.isNotEmpty) {
+        dateMatch = t.date.compareTo(_filterStartDate) >= 0;
       }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context as BuildContext,
-      ).showSnackBar(SnackBar(content: Text('Import failed: $e')));
-    }
+      if (_filterEndDate.isNotEmpty) {
+        dateMatch = dateMatch && t.date.compareTo(_filterEndDate) <= 0;
+      }
+      bool categoryMatch = _filterCategory == 'All' || t.category == _filterCategory;
+      bool typeMatch = _filterType == 'All' || t.type == _filterType;
+      return dateMatch && categoryMatch && typeMatch;
+    }).toList();
   }
 
-  void _showAddTransactionDialog(
-    BuildContext context, {
-    String type = 'expense',
-  }) {
-    String selectedType = type;
-    String? selectedCategory;
-    double? amount;
-    String date = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    String? description;
-    showDialog(
+  double _getTotalIncome() {
+    return _getFilteredTransactions()
+        .where((t) => t.type == 'income')
+        .fold(0, (sum, t) => sum + t.amount);
+  }
+
+  double _getTotalExpenses() {
+    return _getFilteredTransactions()
+        .where((t) => t.type == 'expense')
+        .fold(0, (sum, t) => sum + t.amount);
+  }
+
+  double _getBalance() {
+    return _getTotalIncome() - _getTotalExpenses();
+  }
+
+  Map<String, double> _getExpensesByCategory() {
+    Map<String, double> result = {};
+    for (var t in _getFilteredTransactions().where((t) => t.type == 'expense')) {
+      result[t.category] = (result[t.category] ?? 0) + t.amount;
+    }
+    return result;
+  }
+
+  Map<String, double> _getIncomeByCategory() {
+    Map<String, double> result = {};
+    for (var t in _getFilteredTransactions().where((t) => t.type == 'income')) {
+      result[t.category] = (result[t.category] ?? 0) + t.amount;
+    }
+    return result;
+  }
+
+  void _showAddTransactionDialog() {
+    String selectedType = 'expense';
+    String selectedCategory = '';
+    TextEditingController amountController = TextEditingController();
+    TextEditingController notesController = TextEditingController();
+    TextEditingController tagsController = TextEditingController();
+    String selectedDate = DateTime.now().toString().substring(0, 10);
+    bool isRecurring = false;
+
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Add Transaction'),
-          content: SingleChildScrollView(
+        builder: (context, setModalState) => SingleChildScrollView(
+          child: Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              left: ResponsiveLayout.getMargin(context),
+              right: ResponsiveLayout.getMargin(context),
+              top: 16,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                const Text('Add Transaction',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                DropdownButton<String>(
+                  value: selectedType,
+                  isExpanded: true,
+                  items: ['income', 'expense']
+                      .map((type) => DropdownMenuItem(
+                            value: type,
+                            child: Text(type.toUpperCase()),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    setModalState(() {
+                      selectedType = value!;
+                      selectedCategory = '';
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButton<String>(
+                  hint: const Text('Select Category'),
+                  value: selectedCategory.isEmpty ? null : selectedCategory,
+                  isExpanded: true,
+                  items: (selectedType == 'income' ? incomeCategories : expenseCategories)
+                      .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
+                      .toList(),
+                  onChanged: (value) {
+                    setModalState(() => selectedCategory = value!);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    hintText: 'Amount',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: TextEditingController(text: selectedDate),
+                  readOnly: true,
+                  decoration: InputDecoration(
+                    hintText: 'Date',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.calendar_today),
+                      onPressed: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                        );
+                        if (date != null) {
+                          setModalState(() =>
+                              selectedDate = date.toString().substring(0, 10));
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: notesController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    hintText: 'Notes (optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: tagsController,
+                  decoration: const InputDecoration(
+                    hintText: 'Tags (comma separated)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                CheckboxListTile(
+                  title: const Text('Recurring Transaction'),
+                  value: isRecurring,
+                  onChanged: (value) => setModalState(() => isRecurring = value!),
+                ),
+                const SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () {
-                          setDialogState(() {
-                            selectedType = 'expense';
-                            selectedCategory = null;
-                          });
+                        onPressed: () async {
+                          if (selectedCategory.isNotEmpty &&
+                              amountController.text.isNotEmpty) {
+                            final transaction = Transaction(
+                              id: DateTime.now().millisecondsSinceEpoch,
+                              type: selectedType,
+                              category: selectedCategory,
+                              amount: double.parse(amountController.text),
+                              date: selectedDate,
+                              notes: notesController.text,
+                              recurring: isRecurring,
+                              tags: tagsController.text
+                                  .split(',')
+                                  .map((t) => t.trim())
+                                  .where((t) => t.isNotEmpty)
+                                  .toList(),
+                            );
+                            await dbHelper.insertTransaction(transaction);
+                            setState(() {
+                              transactions.add(transaction);
+                            });
+                            if (mounted) Navigator.pop(context);
+                          }
                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: selectedType == 'expense'
-                              ? Colors.red
-                              : Colors.grey[300],
-                          foregroundColor: selectedType == 'expense'
-                              ? Colors.white
-                              : Colors.black,
-                        ),
-                        child: const Text('Expense'),
+                        child: const Text('Add'),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          setDialogState(() {
-                            selectedType = 'income';
-                            selectedCategory = null;
-                          });
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: selectedType == 'income'
-                              ? Colors.green
-                              : Colors.grey[300],
-                          foregroundColor: selectedType == 'income'
-                              ? Colors.white
-                              : Colors.black,
-                        ),
-                        child: const Text('Income'),
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel'),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Amount',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                  onChanged: (value) => amount = double.tryParse(value),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    labelText: 'Category',
-                    border: OutlineInputBorder(),
-                  ),
-                  value: selectedCategory,
-                  items:
-                      (selectedType == 'expense'
-                              ? _expenseCategories
-                              : _incomeCategories)
-                          .map(
-                            (cat) =>
-                                DropdownMenuItem(value: cat, child: Text(cat)),
-                          )
-                          .toList(),
-                  onChanged: (value) {
-                    setDialogState(() => selectedCategory = value);
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Date',
-                    border: OutlineInputBorder(),
-                  ),
-                  readOnly: true,
-                  controller: TextEditingController(text: date),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime.now(),
-                    );
-                    if (picked != null) {
-                      setDialogState(() {
-                        date = DateFormat('yyyy-MM-dd').format(picked);
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Description (optional)',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (value) => description = value,
-                ),
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (amount != null && selectedCategory != null) {
-                  await DatabaseHelper.instance.insertTransaction({
-                    'type': selectedType,
-                    'amount': amount,
-                    'category': selectedCategory,
-                    'date': date,
-                    'description': description,
-                  });
-                  await _loadData();
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showCategoryDialog() {
-    String categoryType = 'expense';
-    String newCategoryName = '';
-    final BuildContext currentContext = context as BuildContext;
-    showDialog(
-      context: currentContext,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Manage Categories'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setDialogState(() => categoryType = 'expense');
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: categoryType == 'expense'
-                            ? Colors.red
-                            : Colors.grey[300],
-                        foregroundColor: categoryType == 'expense'
-                            ? Colors.white
-                            : Colors.black,
-                      ),
-                      child: const Text('Expense'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setDialogState(() => categoryType = 'income');
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: categoryType == 'income'
-                            ? Colors.green
-                            : Colors.grey[300],
-                        foregroundColor: categoryType == 'income'
-                            ? Colors.white
-                            : Colors.black,
-                      ),
-                      child: const Text('Income'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                decoration: const InputDecoration(
-                  labelText: 'New Category Name',
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (value) => newCategoryName = value,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (newCategoryName.isNotEmpty) {
-                  await DatabaseHelper.instance.insertCategory(
-                    newCategoryName,
-                    categoryType,
-                  );
-                  await _loadData();
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('Add Category'),
-            ),
-          ],
         ),
       ),
     );
@@ -540,746 +590,639 @@ class _ExpenseTrackerHomeState extends State<ExpenseTrackerHome> {
 
   @override
   Widget build(BuildContext context) {
+    Color bgColor = _darkMode ? const Color(0xFF121212) : Colors.grey[100]!;
+    Color cardColor = _darkMode ? const Color(0xFF1E1E1E) : Colors.white;
+    Color textColor = _darkMode ? Colors.white : Colors.black87;
+    bool isMobile = ResponsiveLayout.isMobile(context);
+
     return Scaffold(
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        title: const Text('💰 Finance Tracker'),
+        actions: [
+          IconButton(
+            icon: Icon(_darkMode ? Icons.light_mode : Icons.dark_mode),
+            onPressed: () => setState(() => _darkMode = !_darkMode),
+          ),
+        ],
+      ),
       body: IndexedStack(
-        index: _currentIndex,
-        children: [_buildDashboard(context), _buildReports(), _buildProfile()],
+        index: _selectedIndex,
+        children: [
+          _buildHomePage(cardColor, textColor),
+          _buildReportPage(cardColor, textColor),
+          _buildProfilePage(cardColor, textColor),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddTransactionDialog(context),
+        onPressed: _showAddTransactionDialog,
         child: const Icon(Icons.add),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Dashboard'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: 'Reports',
+      bottomNavigationBar: isMobile
+          ? BottomNavigationBar(
+              currentIndex: _selectedIndex,
+              onTap: (index) => setState(() => _selectedIndex = index),
+              items: const [
+                BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+                BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Report'),
+                BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+              ],
+            )
+          : null,
+    );
+  }
+
+  Widget _buildHomePage(Color cardColor, Color textColor) {
+    final filtered = _getFilteredTransactions();
+    final totalIncome = _getTotalIncome();
+    final totalExpenses = _getTotalExpenses();
+    final balance = _getBalance();
+    final expensesByCategory = _getExpensesByCategory();
+    final curr = currencySymbols[_currency]!;
+    bool isTablet = ResponsiveLayout.isTablet(context);
+    double margin = ResponsiveLayout.getMargin(context);
+    double padding = ResponsiveLayout.getPadding(context);
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(margin),
+      child: Column(
+        children: [
+          GridView.count(
+            crossAxisCount: ResponsiveLayout2.getGridColumns(context),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: padding,
+            crossAxisSpacing: padding,
+            childAspectRatio: ResponsiveLayout2.getCardAspectRatio(context),
+            children: [
+              _buildSummaryCard('Income', '$curr${totalIncome.toStringAsFixed(2)}', Colors.green),
+              _buildSummaryCard('Expenses', '$curr${totalExpenses.toStringAsFixed(2)}', Colors.red),
+              _buildSummaryCard('Balance', '$curr${balance.toStringAsFixed(2)}',
+                  balance >= 0 ? Colors.blue : Colors.orange),
+            ],
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          SizedBox(height: margin),
+          Container(
+            padding: EdgeInsets.all(padding),
+            decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Currency',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
+                SizedBox(height: padding),
+                DropdownButton<String>(
+                  value: _currency,
+                  isExpanded: true,
+                  items: ['USD', 'EUR', 'GBP', 'INR']
+                      .map((curr) => DropdownMenuItem(value: curr, child: Text(curr)))
+                      .toList(),
+                  onChanged: (value) => setState(() => _currency = value!),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: margin),
+          Container(
+            padding: EdgeInsets.all(padding),
+            decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Budget Management',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
+                SizedBox(height: padding),
+                ...expensesByCategory.keys.map((cat) {
+                  final spent = expensesByCategory[cat] ?? 0;
+                  final budget = budgets[cat] ?? 0;
+                  final percentage = budget > 0 ? (spent / budget).toDouble() : 0.0;
+
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: padding),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(cat, style: TextStyle(color: textColor)),
+                            ),
+                            Flexible(
+                              child: Text(
+                                '$curr${spent.toStringAsFixed(2)} / $curr${budget.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  color: spent > budget ? Colors.red : Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: padding / 2),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: percentage > 1.0 ? 1.0 : percentage,
+                            minHeight: 8,
+                            backgroundColor: Colors.grey.shade300,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              percentage > 1.0
+                                  ? Colors.red
+                                  : percentage > 0.8
+                                      ? Colors.orange
+                                      : Colors.green,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          SizedBox(height: margin),
+          Container(
+            padding: EdgeInsets.all(padding),
+            decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Filters',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
+                SizedBox(height: padding),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        readOnly: true,
+                        controller: TextEditingController(text: _filterStartDate),
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+                          if (date != null) {
+                            setState(() =>
+                                _filterStartDate = date.toString().substring(0, 10));
+                          }
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Start Date',
+                          border: const OutlineInputBorder(),
+                          hintStyle: TextStyle(color: textColor),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: padding),
+                    Expanded(
+                      child: TextField(
+                        readOnly: true,
+                        controller: TextEditingController(text: _filterEndDate),
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+                          if (date != null) {
+                            setState(() =>
+                                _filterEndDate = date.toString().substring(0, 10));
+                          }
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'End Date',
+                          border: const OutlineInputBorder(),
+                          hintStyle: TextStyle(color: textColor),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: padding),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButton<String>(
+                        value: _filterType,
+                        isExpanded: true,
+                        items: ['All', 'income', 'expense']
+                            .map((type) => DropdownMenuItem(value: type, child: Text(type)))
+                            .toList(),
+                        onChanged: (value) => setState(() => _filterType = value!),
+                      ),
+                    ),
+                    SizedBox(width: padding),
+                    Expanded(
+                      child: DropdownButton<String>(
+                        value: _filterCategory,
+                        isExpanded: true,
+                        items: ['All', ...incomeCategories, ...expenseCategories]
+                            .toSet()
+                            .toList()
+                            .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
+                            .toList(),
+                        onChanged: (value) => setState(() => _filterCategory = value!),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: margin),
+          Container(
+            padding: EdgeInsets.all(padding),
+            decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Recent Transactions',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
+                SizedBox(height: padding),
+                ...filtered.reversed.map((t) => _buildTransactionTile(t, curr, textColor)),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildDashboard(BuildContext context) {
-    return CustomScrollView(
-      slivers: [
-        SliverAppBar(
-          expandedHeight: 120,
-          pinned: true,
-          flexibleSpace: FlexibleSpaceBar(
-            title: const Text('Expense Tracker'),
-            background: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.blue, Colors.purple, Colors.indigo],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-            ),
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline),
-              onPressed: () =>
-                  _showAddTransactionDialog(context, type: 'income'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.remove_circle_outline),
-              onPressed: () =>
-                  _showAddTransactionDialog(context, type: 'expense'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.settings),
-              onPressed: _showCategoryDialog,
-            ),
-          ],
+  Widget _buildSummaryCard(String title, String amount, Color color) {
+    return Container(
+      padding: EdgeInsets.all(ResponsiveLayout.getPadding(context)),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color.withOpacity(0.7), color],
         ),
-        SliverPadding(
-          padding: const EdgeInsets.all(16),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              _buildStatsCards(),
-              const SizedBox(height: 16),
-              _buildRecentTransactions(),
-            ]),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatsCards() {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                'Balance',
-                '\$${balance.toStringAsFixed(2)}',
-                Icons.account_balance_wallet,
-                Colors.blue,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildStatCard(
-                'Income',
-                '\$${totalIncome.toStringAsFixed(2)}',
-                Icons.trending_up,
-                Colors.green,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _buildStatCard(
-          'Expense',
-          '\$${totalExpense.toStringAsFixed(2)}',
-          Icons.trending_down,
-          Colors.red,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(icon, color: color, size: 32),
-                Text(
-                  title,
-                  style: const TextStyle(fontSize: 14, color: Colors.grey),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(title,
+              style: const TextStyle(
+                  fontSize: 14, color: Colors.white, fontWeight: FontWeight.w500)),
+          SizedBox(height: ResponsiveLayout.getPadding(context) / 2),
+          Text(amount,
+              style: const TextStyle(
+                  fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis),
+        ],
       ),
     );
   }
 
-  Widget _buildRecentTransactions() {
-    final recentTransactions = _transactions.take(6).toList();
+  Widget _buildTransactionTile(Transaction t, String curr, Color textColor) {
+    double padding = ResponsiveLayout.getPadding(context);
+    bool isMobile = ResponsiveLayout.isMobile(context);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Recent Transactions',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            ...recentTransactions.map(
-              (t) => ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: t.type == 'income'
-                      ? Colors.green.shade50
-                      : Colors.red.shade50,
-                  child: Icon(
-                    t.type == 'income'
-                        ? Icons.trending_up
-                        : Icons.trending_down,
-                    color: t.type == 'income' ? Colors.green : Colors.red,
-                  ),
-                ),
-                title: Text(t.category),
-                subtitle: Text(t.description ?? 'No description'),
-                trailing: Text(
-                  '${t.type == 'income' ? '+' : '-'}\$${t.amount.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    color: t.type == 'income' ? Colors.green : Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReports() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Reports',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.filter_list),
-                  onPressed: () {
-                    // Filter functionality can be added
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.download),
-                  onPressed: _exportData,
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        // Summary Cards
-        Row(
-          children: [
-            Expanded(
-              child: Card(
-                color: Colors.green.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.trending_up,
-                        color: Colors.green,
-                        size: 32,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '\${totalIncome.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
-                      const Text('Total Income'),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Card(
-                color: Colors.red.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.trending_down,
-                        color: Colors.red,
-                        size: 32,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '\${totalExpense.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red,
-                        ),
-                      ),
-                      const Text('Total Expense'),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Expense by Category',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                if (categoryExpenses.isEmpty)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32.0),
-                      child: Text('No expense data yet'),
-                    ),
-                  )
-                else
-                  ...categoryExpenses.entries.map((e) {
-                    final percentage = totalExpense > 0
-                        ? (e.value / totalExpense) * 100
-                        : 0;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                e.key,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                '\${e.value.toStringAsFixed(2)} (${percentage.toStringAsFixed(1)}%)',
-                                style: const TextStyle(color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: LinearProgressIndicator(
-                              value: percentage / 100,
-                              backgroundColor: Colors.grey[200],
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.red.shade400,
-                              ),
-                              minHeight: 8,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Income by Category',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                if (categoryIncomes.isEmpty)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32.0),
-                      child: Text('No income data yet'),
-                    ),
-                  )
-                else
-                  ...categoryIncomes.entries.map((e) {
-                    final percentage = totalIncome > 0
-                        ? (e.value / totalIncome) * 100
-                        : 0;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                e.key,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                '\${e.value.toStringAsFixed(2)} (${percentage.toStringAsFixed(1)}%)',
-                                style: const TextStyle(color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: LinearProgressIndicator(
-                              value: percentage / 100,
-                              backgroundColor: Colors.grey[200],
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.green.shade400,
-                              ),
-                              minHeight: 8,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
+    return Padding(
+      padding: EdgeInsets.only(bottom: padding),
+      child: isMobile
+          ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'All Transactions',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Expanded(
+                      child: Text(t.category,
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
                     ),
                     Text(
-                      '${_transactions.length} total',
-                      style: const TextStyle(color: Colors.grey),
+                      '${t.type == 'income' ? '+' : '-'}$curr${t.amount.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: t.type == 'income' ? Colors.green : Colors.red,
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                if (_transactions.isEmpty)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32.0),
-                      child: Column(
-                        children: [
-                          Icon(Icons.inbox, size: 64, color: Colors.grey),
-                          SizedBox(height: 16),
-                          Text('No transactions yet'),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  ..._transactions.map(
-                    (t) => Dismissible(
-                      key: Key(t.id.toString()),
-                      background: Container(
-                        color: Colors.red,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 16),
-                        child: const Icon(Icons.delete, color: Colors.white),
-                      ),
-                      direction: DismissDirection.endToStart,
-                      onDismissed: (direction) {
-                        _deleteTransaction(t.id!);
-                      },
-                      child: Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        elevation: 0,
-                        color: Colors.grey.shade50,
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: t.type == 'income'
-                                ? Colors.green.shade50
-                                : Colors.red.shade50,
-                            child: Icon(
-                              t.type == 'income'
-                                  ? Icons.trending_up
-                                  : Icons.trending_down,
-                              color: t.type == 'income'
-                                  ? Colors.green
-                                  : Colors.red,
-                            ),
-                          ),
-                          title: Text(
-                            t.category,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          subtitle: Text(
-                            '${DateFormat('MMM dd, yyyy').format(DateTime.parse(t.date))} • ${t.description ?? "No description"}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          trailing: Text(
-                            '${t.type == 'income' ? '+' : '-'}\${t.amount.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              color: t.type == 'income'
-                                  ? Colors.green
-                                  : Colors.red,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                      ),
+                SizedBox(height: padding / 2),
+                Text(t.date, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                if (t.notes.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.only(top: padding / 2),
+                    child: Text(t.notes, style: const TextStyle(fontSize: 11)),
+                  ),
+                if (t.tags.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.only(top: padding / 2),
+                    child: Wrap(
+                      spacing: 4,
+                      children: t.tags
+                          .map((tag) => Chip(
+                                label: Text(tag, style: const TextStyle(fontSize: 10)),
+                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ))
+                          .toList(),
                     ),
                   ),
               ],
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(t.category, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text(t.date, style: const TextStyle(fontSize: 12)),
+                      if (t.notes.isNotEmpty)
+                        Text(t.notes, style: const TextStyle(fontSize: 11)),
+                      if (t.tags.isNotEmpty)
+                        Wrap(
+                          spacing: 4,
+                          children: t.tags
+                              .map((tag) => Chip(
+                                    label: Text(tag),
+                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ))
+                              .toList(),
+                        ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: padding),
+                Text(
+                  '${t.type == 'income' ? '+' : '-'}$curr${t.amount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: t.type == 'income' ? Colors.green : Colors.red,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ),
-        const SizedBox(height: 80),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value, Color color, Color textColor) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: textColor)),
+        Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
       ],
     );
   }
 
-  Widget _buildProfile() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Text(
-          'Profile',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 50,
-                  backgroundColor: Colors.blue,
-                  child: const Text(
-                    'JD',
-                    style: TextStyle(fontSize: 32, color: Colors.white),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'John Doe',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const Text('john.doe@email.com'),
-              ],
+  Widget _buildCategoryBar(String category, double amount, double total, Color textColor) {
+    final percentage = total > 0 ? (amount / total).toDouble() : 0.0;
+    double padding = ResponsiveLayout.getPadding(context);
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: padding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(category, style: TextStyle(color: textColor)),
+              ),
+              Text('\${amount.toStringAsFixed(2)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          SizedBox(height: padding / 2),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: percentage,
+              minHeight: 6,
+              backgroundColor: Colors.grey.shade300,
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileRow(String label, String value, Color textColor) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: textColor)),
+        Flexible(
+          child: Text(value,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis),
         ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
+      ],
+    );
+  }
+
+  Widget _buildReportPage(Color cardColor, Color textColor) {
+    final totalIncome = _getTotalIncome();
+    final totalExpenses = _getTotalExpenses();
+    final balance = _getBalance();
+    final incomeByCategory = _getIncomeByCategory();
+    final expensesByCategory = _getExpensesByCategory();
+    final curr = currencySymbols[_currency]!;
+    bool isTablet = ResponsiveLayout.isTablet(context);
+    double margin = ResponsiveLayout.getMargin(context);
+    double padding = ResponsiveLayout.getPadding(context);
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(margin),
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.all(padding),
+            decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Account Statistics',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 1.5,
+                Text('Summary',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
+                SizedBox(height: padding),
+                _buildSummaryRow('Total Income', '$curr${totalIncome.toStringAsFixed(2)}',
+                    Colors.green, textColor),
+                SizedBox(height: padding / 2),
+                _buildSummaryRow('Total Expenses', '$curr${totalExpenses.toStringAsFixed(2)}',
+                    Colors.red, textColor),
+                SizedBox(height: padding / 2),
+                _buildSummaryRow('Net Balance', '$curr${balance.toStringAsFixed(2)}',
+                    balance >= 0 ? Colors.blue : Colors.orange, textColor),
+              ],
+            ),
+          ),
+          SizedBox(height: margin),
+          GridView.count(
+            crossAxisCount: isTablet ? 2 : 1,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: margin,
+            crossAxisSpacing: margin,
+            childAspectRatio: 1.2,
+            children: [
+              Container(
+                padding: EdgeInsets.all(padding),
+                decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildStatItem(
-                      '${_transactions.length}',
-                      'Total Transactions',
-                      Colors.blue,
-                    ),
-                    _buildStatItem(
-                      '${_transactions.where((t) => t.type == 'income').length}',
-                      'Income Records',
-                      Colors.green,
-                    ),
-                    _buildStatItem(
-                      '${_transactions.where((t) => t.type == 'expense').length}',
-                      'Expense Records',
-                      Colors.red,
-                    ),
-                    _buildStatItem(
-                      '${categoryExpenses.length}',
-                      'Categories Used',
-                      Colors.purple,
+                    Text('Income by Category',
+                        style:
+                            TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
+                    SizedBox(height: padding),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: incomeByCategory.entries
+                              .map((e) => _buildCategoryBar(e.key, e.value, totalIncome, textColor))
+                              .toList(),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Categories',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Expense Categories',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _expenseCategories
-                      .map(
-                        (cat) => Chip(
-                          label: Text(cat),
-                          backgroundColor: Colors.red.shade50,
-                          labelStyle: TextStyle(color: Colors.red.shade700),
+              ),
+              Container(
+                padding: EdgeInsets.all(padding),
+                decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Expenses by Category',
+                        style:
+                            TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
+                    SizedBox(height: padding),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: expensesByCategory.entries
+                              .map((e) => _buildCategoryBar(e.key, e.value, totalExpenses, textColor))
+                              .toList(),
                         ),
-                      )
-                      .toList(),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Income Categories',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _incomeCategories
-                      .map(
-                        (cat) => Chip(
-                          label: Text(cat),
-                          backgroundColor: Colors.green.shade50,
-                          labelStyle: TextStyle(color: Colors.green.shade700),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.upload_file, color: Colors.blue),
-                title: const Text('Export Data'),
-                subtitle: const Text('Export transactions to CSV'),
-                onTap: _exportData,
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.download, color: Colors.green),
-                title: const Text('Import Data'),
-                subtitle: const Text('Import transactions from CSV'),
-                onTap: _importData,
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.category, color: Colors.orange),
-                title: const Text('Manage Categories'),
-                subtitle: const Text('Add or view categories'),
-                onTap: _showCategoryDialog,
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.delete_forever, color: Colors.red),
-                title: const Text('Clear All Data'),
-                subtitle: const Text('Delete all transactions'),
-                onTap: _showClearDataDialog,
               ),
             ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildStatItem(String value, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
+  Widget _buildProfilePage(Color cardColor, Color textColor) {
+    if (users.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.all(ResponsiveLayout.getMargin(context)),
+          child: Text('Loading user data...', style: TextStyle(color: textColor)),
+        ),
+      );
+    }
+
+    final user = users[_selectedUserIndex];
+    final balance = _getBalance();
+    final curr = currencySymbols[_currency]!;
+    final expensesByCategory = _getExpensesByCategory();
+    double margin = ResponsiveLayout.getMargin(context);
+    double padding = ResponsiveLayout.getPadding(context);
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(margin),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: color,
+          Container(
+            padding: EdgeInsets.all(padding + 8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade600, Colors.blue.shade800],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 40,
+                  backgroundColor: Colors.white.withOpacity(0.3),
+                  child: const Icon(Icons.person, size: 40, color: Colors.white),
+                ),
+                SizedBox(height: padding),
+                Text(user.name,
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                    textAlign: TextAlign.center),
+                Text(user.occupation,
+                    style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w500),
+                    textAlign: TextAlign.center),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12),
+          SizedBox(height: margin),
+          Container(
+            padding: EdgeInsets.all(padding),
+            decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (users.length > 1)
+                  Column(
+                    children: [
+                      DropdownButton<int>(
+                        value: _selectedUserIndex,
+                        isExpanded: true,
+                        items: List.generate(
+                          users.length,
+                          (index) => DropdownMenuItem(value: index, child: Text(users[index].name)),
+                        ),
+                        onChanged: (value) => setState(() => _selectedUserIndex = value!),
+                      ),
+                      SizedBox(height: padding),
+                    ],
+                  ),
+                _buildProfileRow('Email', user.email, textColor),
+                SizedBox(height: padding / 2),
+                _buildProfileRow('Phone', user.phone, textColor),
+                SizedBox(height: padding / 2),
+                _buildProfileRow('Balance', '$curr${balance.toStringAsFixed(2)}', textColor),
+              ],
+            ),
+          ),
+          SizedBox(height: margin),
+          Container(
+            padding: EdgeInsets.all(padding),
+            decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Spending Overview',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
+                SizedBox(height: padding),
+                ...expensesByCategory.entries.map((entry) {
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: padding / 2),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(entry.key, style: TextStyle(color: textColor)),
+                        Text('$curr${entry.value.toStringAsFixed(2)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
           ),
         ],
       ),
     );
-  }
-
-  void _showClearDataDialog() {
-    final BuildContext currentContext = context as BuildContext;
-    showDialog(
-      context: currentContext,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear All Data'),
-        content: const Text(
-          'Are you sure you want to delete all transactions? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final db = await DatabaseHelper.instance.database;
-              await db.delete('transactions');
-              await _loadData();
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('All data cleared successfully')),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Delete All'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _deleteTransaction(int id) async {
-    await DatabaseHelper.instance.deleteTransaction(id);
-    await _loadData();
-    ScaffoldMessenger.of(
-      context as BuildContext,
-    ).showSnackBar(const SnackBar(content: Text('Transaction deleted')));
   }
 }
