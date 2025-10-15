@@ -141,8 +141,16 @@ class FinanceTrackerApp extends StatelessWidget {
                     title: translations[language]!['appName']!,
                     theme: ThemeData.light().copyWith(
                       primaryColor: Colors.indigo,
-                      scaffoldBackgroundColor: Colors.blue[50],
+                      scaffoldBackgroundColor: Colors.white, // background color
                       cardColor: Colors.white,
+                      cardTheme: CardThemeData(
+                        color: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: const Color.fromARGB(255, 247, 241, 241)!, width: 1),
+                        ),
+                      ),
                       textTheme: TextTheme(
                         bodyLarge: TextStyle(color: Colors.grey[900]),
                         bodyMedium: TextStyle(color: Colors.grey[600]),
@@ -152,7 +160,15 @@ class FinanceTrackerApp extends StatelessWidget {
                     darkTheme: ThemeData.dark().copyWith(
                       primaryColor: Colors.indigo,
                       scaffoldBackgroundColor: Colors.grey[900],
-                      cardColor: Colors.grey[800],
+                      cardColor: Colors.grey[850],
+                      cardTheme: CardThemeData(
+                        color: Colors.grey[850],
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: Colors.grey[700]!, width: 1),
+                        ),
+                      ),
                       textTheme: TextTheme(
                         bodyLarge: TextStyle(color: Colors.white),
                         bodyMedium: TextStyle(color: Colors.grey[300]),

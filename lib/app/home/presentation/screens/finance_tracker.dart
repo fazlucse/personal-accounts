@@ -31,6 +31,11 @@ class _FinanceTrackerState extends State<FinanceTracker> {
         final themeData = Theme.of(context);
         final isTablet = MediaQuery.of(context).size.width > 600;
 
+        // Placeholder user data (replace with actual user profile data)
+        final userName = 'John Doe';
+        final userPhone = '+1234567890';
+        final userDesignation = 'Financial Analyst';
+
         final List<Widget> tabs = [
           DashboardScreen(t: t, isDark: isDark, themeData: themeData),
           ReportsScreen(t: t, isDark: isDark, themeData: themeData),
@@ -58,26 +63,87 @@ class _FinanceTrackerState extends State<FinanceTracker> {
                   context.read<SettingsCubit>().setTheme(isDark ? 'light' : 'dark');
                 },
               ),
-              Padding(
-                padding: EdgeInsets.only(right: 16.w),
-                child: DropdownButton<String>(
-                  value: language,
-                  onChanged: (value) {
-                    if (value != null) {
-                      context.read<SettingsCubit>().setLanguage(value);
-                    }
-                  },
-                  items: [
-                    DropdownMenuItem(
-                      value: 'en',
-                      child: Text('English', style: TextStyle(fontSize: isTablet ? 16.sp : 14.sp)),
+              PopupMenuButton<String>(
+                child: Padding(
+                  padding: EdgeInsets.only(right: 16.w),
+                  child: CircleAvatar(
+                    radius: isTablet ? 20.sp : 16.sp,
+                    backgroundColor: isDark ? Colors.grey[700] : Colors.indigo[100],
+                    child: Icon(
+                      Icons.person,
+                      size: isTablet ? 20.sp : 16.sp,
+                      color: isDark ? Colors.white : Colors.indigo[600],
                     ),
-                    DropdownMenuItem(
-                      value: 'bn',
-                      child: Text('বাংলা', style: TextStyle(fontSize: isTablet ? 16.sp : 14.sp)),
-                    ),
-                  ],
+                  ),
                 ),
+                onSelected: (value) {
+                  if (value == 'logout') {
+                    // Implement logout logic here, e.g., clear auth state and navigate to login
+                    Navigator.pushReplacementNamed(context, '/login');
+                  } else if (value == 'en' || value == 'bn') {
+                    context.read<SettingsCubit>().setLanguage(value);
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    enabled: false,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          userName,
+                          style: TextStyle(
+                            fontSize: isTablet ? 16.sp : 14.sp,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          userPhone,
+                          style: TextStyle(
+                            fontSize: isTablet ? 14.sp : 12.sp,
+                            color: isDark ? Colors.grey[300] : Colors.grey[600],
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          userDesignation,
+                          style: TextStyle(
+                            fontSize: isTablet ? 14.sp : 12.sp,
+                            color: isDark ? Colors.grey[300] : Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: 'en',
+                    child: Text(
+                      'English',
+                      style: TextStyle(fontSize: isTablet ? 16.sp : 14.sp),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'bn',
+                    child: Text(
+                      'বাংলা',
+                      style: TextStyle(fontSize: isTablet ? 16.sp : 14.sp),
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: 'logout',
+                    child: Text(
+                      t['logout'] ?? 'Logout',
+                      style: TextStyle(
+                        fontSize: isTablet ? 16.sp : 14.sp,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -105,13 +171,12 @@ class _FinanceTrackerState extends State<FinanceTracker> {
             notchMargin: 8.w,
             surfaceTintColor: isDark ? Colors.grey[800] : Colors.white,
             child: Container(
-              height: isTablet ? 70.h : 60.h, // Increased height for spacing
+              height: isTablet ? 70.h : 60.h,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  // Left 2 tabs
                   Padding(
-                    padding: EdgeInsets.only(bottom: 8.h), // Space below icons
+                    padding: EdgeInsets.only(bottom: 8.h),
                     child: IconButton(
                       icon: Icon(
                         Icons.home,
@@ -134,8 +199,7 @@ class _FinanceTrackerState extends State<FinanceTracker> {
                       tooltip: t['reports'],
                     ),
                   ),
-                  SizedBox(width: 48.w), // Space for FAB cradle
-                  // Right 2 tabs
+                  SizedBox(width: 48.w),
                   Padding(
                     padding: EdgeInsets.only(bottom: 8.h),
                     child: IconButton(

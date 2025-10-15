@@ -14,6 +14,8 @@ class ProfileRepository {
       name: 'User Name',
       email: 'user@example.com',
       currency: 'BDT',
+      phone: '',
+      designation:'',
       budget: 40000,
     );
   }

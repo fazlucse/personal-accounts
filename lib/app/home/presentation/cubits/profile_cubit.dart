@@ -8,6 +8,9 @@ class ProfileCubit extends Cubit<Profile> {
   ProfileCubit(this.repository) : super(Profile(
           name: 'User Name',
           email: 'user@example.com',
+          phone: '',
+          designation: '',
+          photoUrl: '',
           currency: 'BDT',
           budget: 40000,
         )) {
@@ -22,6 +25,9 @@ class ProfileCubit extends Cubit<Profile> {
   Future<void> updateProfile({
     String? name,
     String? email,
+    String? phone,
+    String? designation,
+    String? photoUrl,
     String? currency,
     double? budget,
   }) async {
@@ -29,6 +35,9 @@ class ProfileCubit extends Cubit<Profile> {
     final updatedProfile = Profile(
       name: name ?? currentProfile.name,
       email: email ?? currentProfile.email,
+      phone: phone ?? currentProfile.phone,
+      designation: designation ?? currentProfile.designation,
+      photoUrl: photoUrl ?? currentProfile.photoUrl,
       currency: currency ?? currentProfile.currency,
       budget: budget ?? currentProfile.budget,
     );

@@ -23,65 +23,135 @@ class DashboardScreen extends StatelessWidget {
     required this.themeData,
   });
 
+  int _getCrossAxisCount(BuildContext context) {
+    final orientation = MediaQuery.of(context).orientation;
+    final width = MediaQuery.of(context).size.width;
+
+    if (orientation == Orientation.landscape) {
+      return width > 900 ? 4 : 2;
+    } else {
+      return width > 600 ? 4 : 2;
+    }
+  }
+
+  double _getChildAspectRatio(BuildContext context) {
+    final orientation = MediaQuery.of(context).orientation;
+    final width = MediaQuery.of(context).size.width;
+
+    if (orientation == Orientation.landscape) {
+      return width > 900 ? 1.5 : 1.8;
+    } else {
+      return width > 600 ? 1.5 : 1.3;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<TransactionCubit, List<Transaction>>(
       builder: (context, transactions) {
         return BlocBuilder<ProfileCubit, Profile>(
           builder: (context, profile) {
-            final income = transactions.where((t) => t.type == 'income').fold(0.0, (sum, t) => sum + t.amount);
-            final expense = transactions.where((t) => t.type == 'expense').fold(0.0, (sum, t) => sum + t.amount);
+            final income = transactions
+                .where((t) => t.type == 'income')
+                .fold(0.0, (sum, t) => sum + t.amount);
+            final expense = transactions
+                .where((t) => t.type == 'expense')
+                .fold(0.0, (sum, t) => sum + t.amount);
             final balance = income - expense;
 
+            final orientation = MediaQuery.of(context).orientation;
+            final isLandscape = orientation == Orientation.landscape;
+
             return SingleChildScrollView(
-              padding: EdgeInsets.all(16.w),
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: MediaQuery.of(context).size.width > 600 ? 4 : 2,
-                    crossAxisSpacing: 16.w,
-                    mainAxisSpacing: 16.h,
-                    children: [
-                      buildStatCard(
-                        title: t['totalIncome']!,
-                        value: '${profile.currency} ${income.toStringAsFixed(0)}',
-                        color: Colors.green,
-                        icon: Icons.trending_up,
-                        themeData: themeData,
-                      ),
-                      buildStatCard(
-                        title: t['totalExpense']!,
-                        value: '${profile.currency} ${expense.toStringAsFixed(0)}',
-                        color: Colors.red,
-                        icon: Icons.trending_down,
-                        themeData: themeData,
-                      ),
-                      buildStatCard(
-                        title: t['balance']!,
-                        value: '${profile.currency} ${balance.toStringAsFixed(0)}',
-                        color: Colors.blue,
-                        icon: Icons.account_balance_wallet,
-                        themeData: themeData,
-                      ),
-                      buildStatCard(
-                        title: t['budget']!,
-                        value: '${profile.currency} ${profile.budget.toStringAsFixed(0)}',
-                        color: Colors.purple,
-                        icon: Icons.pie_chart,
-                        themeData: themeData,
-                      ),
-                    ],
+                  // Stats Grid with constrained height
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      return GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: _getCrossAxisCount(context),
+                        crossAxisSpacing: 5.w,
+                        mainAxisSpacing: 5.h,
+                        childAspectRatio: _getChildAspectRatio(context),
+                        children: [
+                          buildStatCard(
+                            title: t['totalIncome']!,
+                            value:
+                                '${profile.currency} ${income.toStringAsFixed(0)}',
+                            color: Colors.green,
+                            icon: Icons.trending_up,
+                            themeData: themeData,
+                          ),
+                          buildStatCard(
+                            title: t['totalExpense']!,
+                            value:
+                                '${profile.currency} ${expense.toStringAsFixed(0)}',
+                            color: Colors.red,
+                            icon: Icons.trending_down,
+                            themeData: themeData,
+                          ),
+                          buildStatCard(
+                            title: t['balance']!,
+                            value:
+                                '${profile.currency} ${balance.toStringAsFixed(0)}',
+                            color: Colors.blue,
+                            icon: Icons.account_balance_wallet,
+                            themeData: themeData,
+                          ),
+                          buildStatCard(
+                            title: t['budget']!,
+                            value:
+                                '${profile.currency} ${profile.budget.toStringAsFixed(0)}',
+                            color: Colors.purple,
+                            icon: Icons.pie_chart,
+                            themeData: themeData,
+                          ),
+                        ],
+                      );
+                    },
                   ),
+
                   SizedBox(height: 24.h),
-                  Text(
-                    t['recentTransactions']!,
-                    style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: themeData.textTheme.bodyLarge!.color),
+
+                  // Recent Transactions Section
+                  Container(
+                    padding: EdgeInsets.only(left: 10.w),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        left: BorderSide(
+                          color: themeData
+                              .primaryColor, // You can change the color
+                          width: 4.w, // Thickness of the line
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      t['recentTransactions']!,
+                      style: TextStyle(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.bold,
+                        color: themeData.textTheme.bodyLarge!.color,
+                      ),
+                    ),
                   ),
-                  SizedBox(height: 8.h),
-                  buildRecentTransactionsTable(transactions, profile, t, isDark, themeData),
+
+                  SizedBox(height: 12.h),
+
+                  // Transactions table
+                  buildRecentTransactionsTable(
+                    transactions,
+                    profile,
+                    t,
+                    isDark,
+                    themeData,
+                  ),
+
+                  // Bottom padding for better scroll experience
+                  SizedBox(height: 16.h),
                 ],
               ),
             );

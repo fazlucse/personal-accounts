@@ -8,8 +8,16 @@ import '../models/transaction_model.dart';
 class ReportRepository {
   Future<void> downloadReport(List<Transaction> transactions) async {
     final List<List<dynamic>> csvData = [
-      ['Type', 'Category', 'Amount', 'Date', 'Description'],
-      ...transactions.map((t) => [t.type, t.category, t.amount, t.date, t.description]),
+      ['Type', 'Category', 'Amount', 'Date', 'Description', 'Created By', 'Created At'],
+      ...transactions.map((t) => [
+        t.type,
+        t.category,
+        t.amount,
+        t.date,
+        t.description,
+        t.created_by,
+        t.created_at,
+      ]),
     ];
 
     final csvString = const ListToCsvConverter().convert(csvData);
