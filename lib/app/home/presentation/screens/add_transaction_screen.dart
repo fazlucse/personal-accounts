@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
+import 'package:test_app/app/home/presentation/widgets/category_dropdown.dart';
 import '../cubits/transaction_cubit.dart';
 import '../../data/models/transaction_model.dart';
 
@@ -81,16 +82,64 @@ class _AddTransactionForm extends StatefulWidget {
 
 class _AddTransactionFormState extends State<_AddTransactionForm> {
   String type = 'expense';
-  String category = 'food';
+  String? category;
   final TextEditingController amountController = TextEditingController();
   String date = DateFormat('yyyy-MM-dd').format(DateTime.now());
   final TextEditingController descriptionController = TextEditingController();
+   final Map<String, List<String>> categories = {
+    'income': ['Salary', 'Freelance', 'Business', 'Investment', 'Other'],
+    'expense': [
+    'Food',
+    'Groceries',
+    'Fruits',
+    'Dining Out',
+    'Transport',
+    'Fuel',
+    'Bills',
+    'Shopping',
+    'Rent',
+    'Utilities',
+    'Internet',
+    'Phone',
+    'Insurance',
+
+    // ✅ Lifestyle & personal
+    'Health',
+    'Education',
+    'Entertainment',
+    'Subscriptions',
+    'Travel',
+    'Gifts',
+    'Donations',
+    'Pets',
+    'Clothing',
+    'Beauty & Personal Care',
+    'Sports & Fitness',
+
+    // ✅ Financial obligations
+    'Taxes',
+    'Loan Payment',
+    'Credit Card Payment',
+    'Savings Deposit',
+
+    // ✅ Miscellaneous
+    'Maintenance',
+    'Repairs',
+    'Home Supplies',
+    'Electronics',
+    'Stationery',
+    'Childcare',
+    'Others'
+    ],
+  };
 
   @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
     final textColor = widget.isDark ? Colors.white : Colors.black;
-    final backgroundColor = widget.isDark ? widget.themeData.scaffoldBackgroundColor : Colors.white;
+    final backgroundColor = widget.isDark
+        ? widget.themeData.scaffoldBackgroundColor
+        : Colors.white;
 
     return Container(
       color: backgroundColor,
@@ -131,12 +180,17 @@ class _AddTransactionFormState extends State<_AddTransactionForm> {
                     onPressed: () {
                       setState(() {
                         type = 'income';
-                        category = 'salary';
                       });
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: type == 'income' ? Colors.green[50] : (widget.isDark ? Colors.grey[800] : Colors.grey[200]),
-                      side: BorderSide(color: type == 'income' ? Colors.green : Colors.grey),
+                      backgroundColor: type == 'income'
+                          ? Colors.green[50]
+                          : (widget.isDark
+                              ? Colors.grey[800]
+                              : Colors.grey[200]),
+                      side: BorderSide(
+                        color: type == 'income' ? Colors.green : Colors.grey,
+                      ),
                       padding: EdgeInsets.symmetric(vertical: 12.h),
                     ),
                     child: Text(
@@ -154,12 +208,17 @@ class _AddTransactionFormState extends State<_AddTransactionForm> {
                     onPressed: () {
                       setState(() {
                         type = 'expense';
-                        category = 'food';
                       });
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: type == 'expense' ? Colors.red[50] : (widget.isDark ? Colors.grey[800] : Colors.grey[200]),
-                      side: BorderSide(color: type == 'expense' ? Colors.red : Colors.grey),
+                      backgroundColor: type == 'expense'
+                          ? Colors.red[50]
+                          : (widget.isDark
+                              ? Colors.grey[800]
+                              : Colors.grey[200]),
+                      side: BorderSide(
+                        color: type == 'expense' ? Colors.red : Colors.grey,
+                      ),
                       padding: EdgeInsets.symmetric(vertical: 12.h),
                     ),
                     child: Text(
@@ -181,33 +240,19 @@ class _AddTransactionFormState extends State<_AddTransactionForm> {
                 color: textColor,
               ),
             ),
-            DropdownButton<String>(
+            CategoryDropdown(
               value: category,
               isExpanded: true,
-              dropdownColor: backgroundColor,
-              style: TextStyle(
-                fontSize: isTablet ? 16.sp : 14.sp,
-                color: textColor,
-              ),
+              isTablet: isTablet,
+              type: type,
+              translations: widget.t,
               onChanged: (value) {
                 if (value != null) {
                   setState(() => category = value);
                 }
               },
-              items: (type == 'income'
-                      ? ['salary', 'freelance', 'business', 'investment', 'other']
-                      : ['food', 'transport', 'bills', 'shopping', 'entertainment', 'health', 'education', 'other'])
-                  .map((cat) => DropdownMenuItem(
-                        value: cat,
-                        child: Text(
-                          widget.t[cat]!,
-                          style: TextStyle(
-                            fontSize: isTablet ? 16.sp : 14.sp,
-                            color: textColor,
-                          ),
-                        ),
-                      ))
-                  .toList(),
+              incomeCategories: type == 'income' ? categories[type]! : [],
+              expenseCategories: type == 'expense' ? categories[type]! : [],
             ),
             SizedBox(height: 16.h),
             Text(
@@ -230,9 +275,16 @@ class _AddTransactionFormState extends State<_AddTransactionForm> {
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8.r),
-                  borderSide: BorderSide(color: widget.isDark ? Colors.grey[700]! : Colors.grey[300]!),
+                  borderSide: BorderSide(
+                    color: widget.isDark
+                        ? Colors.grey[700]!
+                        : Colors.grey[300]!,
+                  ),
                 ),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12.w,
+                  vertical: 12.h,
+                ),
               ),
             ),
             SizedBox(height: 16.h),
@@ -258,13 +310,17 @@ class _AddTransactionFormState extends State<_AddTransactionForm> {
                   lastDate: DateTime(2100),
                   builder: (context, child) {
                     return Theme(
-                      data: widget.isDark ? ThemeData.dark() : ThemeData.light(),
+                      data: widget.isDark
+                          ? ThemeData.dark()
+                          : ThemeData.light(),
                       child: child!,
                     );
                   },
                 );
                 if (selectedDate != null) {
-                  setState(() => date = DateFormat('yyyy-MM-dd').format(selectedDate));
+                  setState(
+                    () => date = DateFormat('yyyy-MM-dd').format(selectedDate),
+                  );
                 }
               },
               decoration: InputDecoration(
@@ -273,9 +329,16 @@ class _AddTransactionFormState extends State<_AddTransactionForm> {
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8.r),
-                  borderSide: BorderSide(color: widget.isDark ? Colors.grey[700]! : Colors.grey[300]!),
+                  borderSide: BorderSide(
+                    color: widget.isDark
+                        ? Colors.grey[700]!
+                        : Colors.grey[300]!,
+                  ),
                 ),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12.w,
+                  vertical: 12.h,
+                ),
               ),
             ),
             SizedBox(height: 16.h),
@@ -298,33 +361,44 @@ class _AddTransactionFormState extends State<_AddTransactionForm> {
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8.r),
-                  borderSide: BorderSide(color: widget.isDark ? Colors.grey[700]! : Colors.grey[300]!),
+                  borderSide: BorderSide(
+                    color: widget.isDark
+                        ? Colors.grey[700]!
+                        : Colors.grey[300]!,
+                  ),
                 ),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12.w,
+                  vertical: 12.h,
+                ),
               ),
             ),
             SizedBox(height: 24.h),
             ElevatedButton.icon(
               onPressed: () {
                 final amount = double.tryParse(amountController.text);
-                if (amount != null && descriptionController.text.isNotEmpty) {
+                if (amount != null && descriptionController.text.isNotEmpty && category != null) {
                   context.read<TransactionCubit>().addTransaction(
-                        Transaction(
-                          id: DateTime.now().millisecondsSinceEpoch,
-                          type: type,
-                          category: category,
-                          amount: amount,
-                          date: date,
-                          description: descriptionController.text,
-                        ),
-                      );
+                    Transaction(
+                      id: DateTime.now().millisecondsSinceEpoch,
+                      type: type,
+                      category: category!,
+                      amount: amount,
+                      date: date,
+                      description: descriptionController.text,
+                    ),
+                  );
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(widget.t['add']! + ' Successful')),
                   );
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Please enter valid amount and description')),
+                    SnackBar(
+                      content: Text(
+                        'Please enter valid amount, description, and select a category',
+                      ),
+                    ),
                   );
                 }
               },

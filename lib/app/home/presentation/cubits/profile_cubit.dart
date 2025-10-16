@@ -8,8 +8,8 @@ class ProfileCubit extends Cubit<Profile> {
   ProfileCubit(this.repository) : super(Profile(
           name: 'User Name',
           email: 'user@example.com',
-          phone: '',
-          designation: '',
+          phone: '222',
+          designation: 's',
           photoUrl: '',
           currency: 'BDT',
           budget: 40000,

@@ -4,7 +4,7 @@ class Transaction {
   final String category;
   final double amount;
   final String date;
-  final String description;
+  final String? description;
   final String created_by;
   final String created_at;
 
@@ -14,7 +14,7 @@ class Transaction {
     required this.category,
     required this.amount,
     required this.date,
-    required this.description,
+     this.description,
     String? created_by = 'Unknown',
     String? created_at,
   }) : created_by = created_by ?? 'system',

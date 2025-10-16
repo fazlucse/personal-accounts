@@ -10,7 +10,7 @@ Widget buildRecentTransactionsTable(
   bool isDark,
   ThemeData themeData,
 ) {
-  final recent = transactions.take(5).toList().reversed.toList();
+  final recent = transactions.take(50).toList().reversed.toList();
   
   return Column(
     children: recent.map((transaction) {
@@ -46,7 +46,7 @@ Widget buildRecentTransactionsTable(
                   children: [
                     // Description
                     Text(
-                      transaction.description,
+                      transaction.description ?? "No description",
                       style: TextStyle(
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w600,
@@ -88,7 +88,7 @@ Widget buildRecentTransactionsTable(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${profile.currency}',
+                    'BDT',
                     style: TextStyle(
                       fontSize: 11.sp,
                       color: transaction.type == 'income' ? Colors.green : Colors.red,

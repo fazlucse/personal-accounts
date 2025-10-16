@@ -12,7 +12,6 @@ class TransactionRepository {
 
   // Public getter for the database
   Database get database => _database;
-
   Future<void> initDatabase() async {
   final dbPath = await getDatabasesPath();
   await openDatabase(
@@ -85,4 +84,6 @@ class TransactionRepository {
     // Sync to Firestore
     // await _firestore.collection('transactions').doc(transaction.id.toString()).set(transaction.toJson());
   }
+
+
 }
