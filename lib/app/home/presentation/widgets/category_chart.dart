@@ -23,20 +23,22 @@ Widget buildCategoryChart(
             style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 8.h),
-          SizedBox(
-            height: 200.h,
-            child: PieChart(
-              PieChartData(
-                sections: data.entries.map((e) {
-                  final percentage = total > 0 ? (e.value / total) * 100 : 0;
-                  return PieChartSectionData(
-                    color: color,
-                    value: e.value,
-                    title: '${t[e.key]} (${percentage.toStringAsFixed(1)}%)',
-                    radius: 50.r,
-                    titleStyle: TextStyle(fontSize: 10.sp, color: Colors.white),
-                  );
-                }).toList(),
+          Expanded(
+            child: SizedBox(
+              height: 200.h,
+              child: PieChart(
+                PieChartData(
+                  sections: data.entries.map((e) {
+                    final percentage = total > 0 ? (e.value / total) * 100 : 0;
+                    return PieChartSectionData(
+                      color: color,
+                      value: e.value,
+                      title: '${t[e.key]} (${percentage.toStringAsFixed(1)}%)',
+                      radius: 50.r,
+                      titleStyle: TextStyle(fontSize: 10.sp, color: Colors.white),
+                    );
+                  }).toList(),
+                ),
               ),
             ),
           ),

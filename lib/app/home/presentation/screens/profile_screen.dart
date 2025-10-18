@@ -21,7 +21,9 @@ class ProfileScreen extends StatelessWidget {
     final nameController = TextEditingController(text: profile.name);
     final emailController = TextEditingController(text: profile.email);
     final phoneController = TextEditingController(text: profile.phone ?? '');
-    final designationController = TextEditingController(text: profile.designation ?? '');
+    final designationController = TextEditingController(
+      text: profile.designation ?? '',
+    );
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(16.w),
@@ -48,11 +50,16 @@ class ProfileScreen extends StatelessWidget {
               child: CircleAvatar(
                 radius: 50.r,
                 backgroundColor: isDark ? Colors.grey[700] : Colors.grey[300],
-                backgroundImage: profile.photoUrl != null && profile.photoUrl!.isNotEmpty
+                backgroundImage:
+                    profile.photoUrl != null && profile.photoUrl!.isNotEmpty
                     ? NetworkImage(profile.photoUrl!)
                     : null,
                 child: profile.photoUrl == null || profile.photoUrl!.isEmpty
-                    ? Icon(Icons.person, size: 50.sp, color: themeData.textTheme.bodyMedium!.color)
+                    ? Icon(
+                        Icons.person,
+                        size: 50.sp,
+                        color: themeData.textTheme.bodyMedium!.color,
+                      )
                     : null,
               ),
             ),
@@ -61,7 +68,10 @@ class ProfileScreen extends StatelessWidget {
           // Name Field
           Text(
             t['name']!,
-            style: TextStyle(fontSize: 14.sp, color: themeData.textTheme.bodyMedium!.color),
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: themeData.textTheme.bodyMedium!.color,
+            ),
           ),
           TextField(
             controller: nameController,
@@ -71,7 +81,10 @@ class ProfileScreen extends StatelessWidget {
           // Email Field
           Text(
             t['email']!,
-            style: TextStyle(fontSize: 14.sp, color: themeData.textTheme.bodyMedium!.color),
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: themeData.textTheme.bodyMedium!.color,
+            ),
           ),
           TextField(
             controller: emailController,
@@ -82,7 +95,10 @@ class ProfileScreen extends StatelessWidget {
           // Phone Field
           Text(
             t['phone'] ?? 'Phone', // Fallback if 'phone' is not in translations
-            style: TextStyle(fontSize: 14.sp, color: themeData.textTheme.bodyMedium!.color),
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: themeData.textTheme.bodyMedium!.color,
+            ),
           ),
           TextField(
             controller: phoneController,
@@ -92,8 +108,12 @@ class ProfileScreen extends StatelessWidget {
           SizedBox(height: 16.h),
           // Designation Field
           Text(
-            t['designation'] ?? 'Designation', // Fallback if 'designation' is not in translations
-            style: TextStyle(fontSize: 14.sp, color: themeData.textTheme.bodyMedium!.color),
+            t['designation'] ??
+                'Designation', // Fallback if 'designation' is not in translations
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: themeData.textTheme.bodyMedium!.color,
+            ),
           ),
           TextField(
             controller: designationController,
@@ -103,12 +123,16 @@ class ProfileScreen extends StatelessWidget {
           ElevatedButton(
             onPressed: () {
               context.read<ProfileCubit>().updateProfile(
-                    name: nameController.text,
-                    email: emailController.text,
-                    phone: phoneController.text,
-                    designation: designationController.text,
-                    photoUrl: profile.photoUrl, // Retain existing photoUrl (update logic needed for photo)
-                  );
+                name: nameController.text,
+                email: emailController.text,
+                phone: phoneController.text,
+                designation: designationController.text,
+                photoUrl: profile
+                    .photoUrl, // Retain existing photoUrl (update logic needed for photo)
+              );
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Profile Update successfully')),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.indigo[600],

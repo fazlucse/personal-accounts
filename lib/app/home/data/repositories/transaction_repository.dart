@@ -1,5 +1,7 @@
 
 // import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
+import 'dart:ffi';
+
 import 'package:sqflite/sqflite.dart' hide Transaction;
 import 'package:path/path.dart';
 import '../models/transaction_model.dart';
@@ -84,6 +86,12 @@ class TransactionRepository {
     // Sync to Firestore
     // await _firestore.collection('transactions').doc(transaction.id.toString()).set(transaction.toJson());
   }
-
+  Future<void> deleteTransaction(String id) async {
+    await _database.delete(
+      'transactions',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
 
 }

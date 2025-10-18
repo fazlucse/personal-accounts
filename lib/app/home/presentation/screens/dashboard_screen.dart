@@ -53,10 +53,10 @@ class DashboardScreen extends StatelessWidget {
           builder: (context, profile) {
             final income = transactions
                 .where((t) => t.type == 'income')
-                .fold(0.0, (sum, t) => sum + t.amount);
+                .fold(0.0, (sum, t) => sum + (t.amount ?? 0));
             final expense = transactions
                 .where((t) => t.type == 'expense')
-                .fold(0.0, (sum, t) => sum + t.amount);
+                .fold(0.0, (sum, t) => sum + (t.amount ?? 0));
             final balance = income - expense;
 
             final orientation = MediaQuery.of(context).orientation;
@@ -123,9 +123,8 @@ class DashboardScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       border: Border(
                         left: BorderSide(
-                          color: themeData
-                              .primaryColor, // You can change the color
-                          width: 4.w, // Thickness of the line
+                          color: themeData.primaryColor,
+                          width: 4.w,
                         ),
                       ),
                     ),
@@ -143,11 +142,17 @@ class DashboardScreen extends StatelessWidget {
 
                   // Transactions table
                   buildRecentTransactionsTable(
-                    transactions,
-                    profile,
-                    t,
-                    isDark,
-                    themeData,
+                    transactions: transactions,
+                    profile: profile,
+                    t: t,
+                    isDark: isDark,
+                    themeData: themeData,
+                    context: context, // Add this line
+                    onDelete: (transaction) {
+                      context.read<TransactionCubit>().deleteTransaction(
+                        transaction,
+                      );
+                    },
                   ),
 
                   // Bottom padding for better scroll experience

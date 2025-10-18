@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:test_app/app/home/data/models/profile_model.dart';
 import 'package:test_app/main.dart';
 import '../../data/models/settings_model.dart';
 import '../cubits/settings_cubit.dart';
@@ -20,6 +24,56 @@ class FinanceTracker extends StatefulWidget {
 class _FinanceTrackerState extends State<FinanceTracker> {
   int _activeTabIndex = 0;
 
+  String? userName;
+  String? userEmail;
+  String? userPhone;
+  String? userDesignation;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  // Load user data from SharedPreferences
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString('profile');
+    if (jsonString != null) {
+      try {
+        final profileJson = jsonDecode(jsonString);
+        final profile = Profile.fromJson(profileJson);
+        setState(() {
+          userName = profile.name ?? 'Guest';
+          userEmail = profile.email ?? 'No Email';
+          userPhone = profile.phone ?? 'No Phone';
+        });
+      } catch (e) {
+        // Handle JSON decoding errors
+        setState(() {
+          userName = 'Guest';
+          userEmail = 'No Email';
+          userPhone = 'No Phone';
+        });
+      }
+    } else {
+      // No profile data found
+      setState(() {
+        userName = 'Guest';
+        userEmail = 'No Email';
+        userPhone = 'No Phone';
+      });
+    }
+  }
+
+  String _getInitials(String name) {
+    if (name.isEmpty || name == 'Guest') return 'G';
+    final parts = name.trim().split(' ');
+    if (parts.isEmpty) return '';
+    if (parts.length == 1) return parts[0][0].toUpperCase();
+    return '${parts[0][0].toUpperCase()}${parts[1][0].toUpperCase()}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<SettingsCubit, Settings>(
@@ -30,11 +84,6 @@ class _FinanceTrackerState extends State<FinanceTracker> {
         final isDark = theme == 'dark';
         final themeData = Theme.of(context);
         final isTablet = MediaQuery.of(context).size.width > 600;
-
-        // Placeholder user data (replace with actual user profile data)
-        final userName = 'John Doe';
-        final userPhone = '+1234567890';
-        final userDesignation = 'Financial Analyst';
 
         final List<Widget> tabs = [
           DashboardScreen(t: t, isDark: isDark, themeData: themeData),
@@ -54,21 +103,27 @@ class _FinanceTrackerState extends State<FinanceTracker> {
               ),
             ),
             actions: [
+              // Theme toggle button
               IconButton(
                 icon: Icon(
                   isDark ? Icons.wb_sunny : Icons.nights_stay,
                   size: isTablet ? 28.sp : 24.sp,
                 ),
                 onPressed: () {
-                  context.read<SettingsCubit>().setTheme(isDark ? 'light' : 'dark');
+                  context.read<SettingsCubit>().setTheme(
+                    isDark ? 'light' : 'dark',
+                  );
                 },
               ),
+              // PopupMenuButton with user info and logout/language in one line
               PopupMenuButton<String>(
                 child: Padding(
                   padding: EdgeInsets.only(right: 16.w),
                   child: CircleAvatar(
                     radius: isTablet ? 20.sp : 16.sp,
-                    backgroundColor: isDark ? Colors.grey[700] : Colors.indigo[100],
+                    backgroundColor: isDark
+                        ? Colors.grey[700]
+                        : Colors.indigo[100],
                     child: Icon(
                       Icons.person,
                       size: isTablet ? 20.sp : 16.sp,
@@ -78,10 +133,7 @@ class _FinanceTrackerState extends State<FinanceTracker> {
                 ),
                 onSelected: (value) {
                   if (value == 'logout') {
-                    // Implement logout logic here, e.g., clear auth state and navigate to login
                     Navigator.pushReplacementNamed(context, '/login');
-                  } else if (value == 'en' || value == 'bn') {
-                    context.read<SettingsCubit>().setLanguage(value);
                   }
                 },
                 itemBuilder: (context) => [
@@ -90,57 +142,100 @@ class _FinanceTrackerState extends State<FinanceTracker> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          userName,
-                          style: TextStyle(
-                            fontSize: isTablet ? 16.sp : 14.sp,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.black,
+                        Center(
+                          child: CircleAvatar(
+                            radius: 50.sp, // Set radius to 50.sp
+                            backgroundColor: isDark
+                                ? Colors.grey[700]
+                                : Colors.indigo[100],
+                            child: Text(
+                              _getInitials(userName ?? 'Guest'),
+                              style: TextStyle(
+                                fontSize:
+                                    32.sp, // Adjust font size for larger avatar
+                                fontWeight: FontWeight.bold,
+                                color: isDark
+                                    ? Colors.white
+                                    : Colors.indigo[600],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Center(
+                          child: Text(
+                            userName!,
+                            style: TextStyle(
+                              fontSize: isTablet ? 16.sp : 14.sp,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
                           ),
                         ),
                         SizedBox(height: 4.h),
-                        Text(
-                          userPhone,
-                          style: TextStyle(
-                            fontSize: isTablet ? 14.sp : 12.sp,
-                            color: isDark ? Colors.grey[300] : Colors.grey[600],
+                        Center(
+                          child: Text(
+                            userPhone!,
+                            style: TextStyle(
+                              fontSize: isTablet ? 14.sp : 12.sp,
+                              color: isDark
+                                  ? Colors.grey[300]
+                                  : Colors.grey[600],
+                            ),
                           ),
                         ),
                         SizedBox(height: 4.h),
-                        Text(
-                          userDesignation,
-                          style: TextStyle(
-                            fontSize: isTablet ? 14.sp : 12.sp,
-                            color: isDark ? Colors.grey[300] : Colors.grey[600],
+                        if (userDesignation != null &&
+                            userDesignation != 'No Designation')
+                          Text(
+                            userDesignation!,
+                            style: TextStyle(
+                              fontSize: isTablet ? 14.sp : 12.sp,
+                              color: isDark
+                                  ? Colors.grey[300]
+                                  : Colors.grey[600],
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),
                   const PopupMenuDivider(),
                   PopupMenuItem(
-                    value: 'en',
-                    child: Text(
-                      'English',
-                      style: TextStyle(fontSize: isTablet ? 16.sp : 14.sp),
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'bn',
-                    child: Text(
-                      'বাংলা',
-                      style: TextStyle(fontSize: isTablet ? 16.sp : 14.sp),
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  PopupMenuItem(
                     value: 'logout',
-                    child: Text(
-                      t['logout'] ?? 'Logout',
-                      style: TextStyle(
-                        fontSize: isTablet ? 16.sp : 14.sp,
-                        color: Colors.red,
-                      ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          t['logout'] ?? 'Logout',
+                          style: TextStyle(
+                            fontSize: isTablet ? 16.sp : 14.sp,
+                            color: Colors.red,
+                          ),
+                        ),
+                        Tooltip(
+                          message: 'Toggle Language (EN/BN)',
+                          child: StatefulBuilder(
+                            builder: (context, setState) {
+                              return Switch(
+                                value: context.select<SettingsCubit, bool>(
+                                  (cubit) => cubit.state.language == 'en',
+                                ),
+                                onChanged: (value) {
+                                  context.read<SettingsCubit>().setLanguage(
+                                    value ? 'en' : 'bn',
+                                  );
+                                  setState(() {}); // Update the Switch UI
+                                },
+                                activeColor: isDark
+                                    ? Colors.indigo[400]
+                                    : Colors.indigo[600],
+                                activeTrackColor: isDark
+                                    ? Colors.indigo[800]
+                                    : Colors.indigo[300],
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -163,9 +258,12 @@ class _FinanceTrackerState extends State<FinanceTracker> {
             shape: CircleBorder(),
             child: Icon(Icons.add, size: isTablet ? 28.sp : 24.sp),
           ),
-          floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+          floatingActionButtonLocation:
+              FloatingActionButtonLocation.centerDocked,
           bottomNavigationBar: BottomAppBar(
-            color: themeData.bottomAppBarTheme.color ?? (isDark ? Colors.grey[900] : Colors.white),
+            color:
+                themeData.bottomAppBarTheme.color ??
+                (isDark ? Colors.grey[900] : Colors.white),
             elevation: 8,
             shape: CircularNotchedRectangle(),
             notchMargin: 8.w,
@@ -181,7 +279,9 @@ class _FinanceTrackerState extends State<FinanceTracker> {
                       icon: Icon(
                         Icons.home,
                         size: isTablet ? 28.sp : 24.sp,
-                        color: _activeTabIndex == 0 ? Colors.indigo[600] : themeData.textTheme.bodySmall!.color,
+                        color: _activeTabIndex == 0
+                            ? Colors.indigo[600]
+                            : themeData.textTheme.bodySmall!.color,
                       ),
                       onPressed: () => setState(() => _activeTabIndex = 0),
                       tooltip: t['dashboard'],
@@ -193,7 +293,9 @@ class _FinanceTrackerState extends State<FinanceTracker> {
                       icon: Icon(
                         Icons.description,
                         size: isTablet ? 28.sp : 24.sp,
-                        color: _activeTabIndex == 1 ? Colors.indigo[600] : themeData.textTheme.bodySmall!.color,
+                        color: _activeTabIndex == 1
+                            ? Colors.indigo[600]
+                            : themeData.textTheme.bodySmall!.color,
                       ),
                       onPressed: () => setState(() => _activeTabIndex = 1),
                       tooltip: t['reports'],
@@ -206,7 +308,9 @@ class _FinanceTrackerState extends State<FinanceTracker> {
                       icon: Icon(
                         Icons.person,
                         size: isTablet ? 28.sp : 24.sp,
-                        color: _activeTabIndex == 2 ? Colors.indigo[600] : themeData.textTheme.bodySmall!.color,
+                        color: _activeTabIndex == 2
+                            ? Colors.indigo[600]
+                            : themeData.textTheme.bodySmall!.color,
                       ),
                       onPressed: () => setState(() => _activeTabIndex = 2),
                       tooltip: t['profile'],
@@ -218,7 +322,9 @@ class _FinanceTrackerState extends State<FinanceTracker> {
                       icon: Icon(
                         Icons.settings,
                         size: isTablet ? 28.sp : 24.sp,
-                        color: _activeTabIndex == 3 ? Colors.indigo[600] : themeData.textTheme.bodySmall!.color,
+                        color: _activeTabIndex == 3
+                            ? Colors.indigo[600]
+                            : themeData.textTheme.bodySmall!.color,
                       ),
                       onPressed: () => setState(() => _activeTabIndex = 3),
                       tooltip: t['settings'],

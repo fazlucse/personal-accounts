@@ -377,7 +377,7 @@ class _AddTransactionFormState extends State<_AddTransactionForm> {
             ElevatedButton.icon(
               onPressed: () {
                 final amount = double.tryParse(amountController.text);
-                if (amount != null && descriptionController.text.isNotEmpty && category != null) {
+                if (amount != null && category != null) {
                   context.read<TransactionCubit>().addTransaction(
                     Transaction(
                       id: DateTime.now().millisecondsSinceEpoch,
@@ -396,7 +396,7 @@ class _AddTransactionFormState extends State<_AddTransactionForm> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        'Please enter valid amount, description, and select a category',
+                        'Please enter valid amount, and select a category',
                       ),
                     ),
                   );
