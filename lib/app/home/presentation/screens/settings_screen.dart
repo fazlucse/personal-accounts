@@ -29,10 +29,20 @@ class SettingsScreen extends StatelessWidget {
         children: [
           Text(
             t['settings']!,
-            style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold, color: themeData.textTheme.bodyLarge!.color),
+            style: TextStyle(
+              fontSize: 20.sp,
+              fontWeight: FontWeight.bold,
+              color: isDark ? themeData.textTheme.bodyLarge!.color : Colors.black,
+            ),
           ),
           SizedBox(height: 16.h),
-          Text(t['theme']!, style: TextStyle(fontSize: 14.sp, color: themeData.textTheme.bodyMedium!.color)),
+          Text(
+            t['theme']!,
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+            ),
+          ),
           DropdownButton<String>(
             value: settings.theme,
             isExpanded: true,
@@ -41,10 +51,24 @@ class SettingsScreen extends StatelessWidget {
                 context.read<SettingsCubit>().setTheme(value);
               }
             },
-            items: ['light', 'dark'].map((th) => DropdownMenuItem(value: th, child: Text(t[th]!))).toList(),
+            items: ['light', 'dark'].map((th) => DropdownMenuItem(
+              value: th,
+              child: Text(
+                t[th]!,
+                style: TextStyle(
+                  color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+                ),
+              ),
+            )).toList(),
           ),
           SizedBox(height: 16.h),
-          Text(t['currency']!, style: TextStyle(fontSize: 14.sp, color: themeData.textTheme.bodyMedium!.color)),
+          Text(
+            t['currency']!,
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+            ),
+          ),
           DropdownButton<String>(
             value: profile.currency,
             isExpanded: true,
@@ -54,21 +78,65 @@ class SettingsScreen extends StatelessWidget {
               }
             },
             items: [
-              const DropdownMenuItem(value: 'BDT', child: Text('BDT - Bangladeshi Taka')),
-              const DropdownMenuItem(value: 'USD', child: Text('USD - US Dollar')),
-              const DropdownMenuItem(value: 'EUR', child: Text('EUR - Euro')),
-              const DropdownMenuItem(value: 'GBP', child: Text('GBP - British Pound')),
+              DropdownMenuItem(
+                value: 'BDT',
+                child: Text(
+                  'BDT - Bangladeshi Taka',
+                  style: TextStyle(
+                    color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+                  ),
+                ),
+              ),
+              DropdownMenuItem(
+                value: 'USD',
+                child: Text(
+                  'USD - US Dollar',
+                  style: TextStyle(
+                    color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+                  ),
+                ),
+              ),
+              DropdownMenuItem(
+                value: 'EUR',
+                child: Text(
+                  'EUR - Euro',
+                  style: TextStyle(
+                    color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+                  ),
+                ),
+              ),
+              DropdownMenuItem(
+                value: 'GBP',
+                child: Text(
+                  'GBP - British Pound',
+                  style: TextStyle(
+                    color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+                  ),
+                ),
+              ),
             ],
           ),
           SizedBox(height: 16.h),
-          Text(t['monthlyBudget']!, style: TextStyle(fontSize: 14.sp, color: themeData.textTheme.bodyMedium!.color)),
+          Text(
+            t['monthlyBudget']!,
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+            ),
+          ),
           TextField(
             controller: budgetController,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(border: OutlineInputBorder()),
           ),
           SizedBox(height: 16.h),
-          Text(t['language']!, style: TextStyle(fontSize: 14.sp, color: themeData.textTheme.bodyMedium!.color)),
+          Text(
+            t['language']!,
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+            ),
+          ),
           DropdownButton<String>(
             value: settings.language,
             isExpanded: true,
@@ -78,8 +146,24 @@ class SettingsScreen extends StatelessWidget {
               }
             },
             items: [
-              const DropdownMenuItem(value: 'en', child: Text('English')),
-              const DropdownMenuItem(value: 'bn', child: Text('বাংলা')),
+              DropdownMenuItem(
+                value: 'en',
+                child: Text(
+                  'English',
+                  style: TextStyle(
+                    color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+                  ),
+                ),
+              ),
+              DropdownMenuItem(
+                value: 'bn',
+                child: Text(
+                  'বাংলা',
+                  style: TextStyle(
+                    color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+                  ),
+                ),
+              ),
             ],
           ),
           SizedBox(height: 24.h),
@@ -88,6 +172,12 @@ class SettingsScreen extends StatelessWidget {
               final budget = double.tryParse(budgetController.text);
               if (budget != null) {
                 context.read<ProfileCubit>().updateProfile(budget: budget);
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/main',
+                  (route) => false,
+                  arguments: {'tabIndex': 0}, // Navigate to home tab
+                );
               }
             },
             style: ElevatedButton.styleFrom(
