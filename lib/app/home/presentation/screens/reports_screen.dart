@@ -1,18 +1,15 @@
+// lib/app/home/presentation/screens/reports_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:csv/csv.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
+
 import '../../data/models/profile_model.dart';
 import '../../data/models/transaction_model.dart';
-import '../cubits/transaction_cubit.dart';
 import '../cubits/profile_cubit.dart';
 import '../../data/repositories/report_repository.dart';
 import '../widgets/category_chart.dart';
 
-class ReportsScreen extends StatelessWidget {
+class ReportsScreen extends StatefulWidget {
   final Map<String, String> t;
   final bool isDark;
   final ThemeData themeData;
@@ -24,244 +21,373 @@ class ReportsScreen extends StatelessWidget {
     required this.themeData,
   });
 
-  Future<void> _exportToCsv(
-    BuildContext context,
-    List<Transaction> transactions,
-  ) async {
+  @override
+  State<ReportsScreen> createState() => _ReportsScreenState();
+}
+
+class _ReportsScreenState extends State<ReportsScreen> {
+  DateTime? _selectedMonth;
+  String _selectedType = 'all';
+  String _selectedCategory = 'all';
+  bool _showTransactions = false;
+  List<Transaction> _filteredTransactions = [];
+  bool _isLoading = false;
+
+  final _reportRepo = ReportRepository();
+  final Map<String, bool> _expandedCategories = {};
+
+  final List<String> _categories = [
+    'all', 'Food', 'Transport', 'Shopping', 'Bills', 'Entertainment',
+    'Health', 'Education', 'Salary', 'Other'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  }
+
+  Future<void> _pickMonth() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedMonth ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedMonth = DateTime(picked.year, picked.month, 1);
+        _showTransactions = false;
+        _expandedCategories.clear();
+      });
+    }
+  }
+
+  Future<void> _fetchFilteredData() async {
+    if (_selectedMonth == null) return;
+
+    setState(() {
+      _isLoading = true;
+      _showTransactions = false;
+      _expandedCategories.clear();
+    });
+
     try {
-      final List<List<dynamic>> csvData = [
-        [
-          'Type',
-          'Category',
-          'Amount',
-          'Date',
-          'Description',
-          'Created By',
-          'Created At',
-        ],
-        ...transactions.map(
-          (t) => [
-            t.type,
-            t.category,
-            t.amount,
-            t.date,
-            t.description,
-            t.created_by,
-            t.created_at,
-          ],
-        ),
-      ];
+      final from = _selectedMonth!;
+      final to = DateTime(from.year, from.month + 1, 0, 23, 59, 59);
+      final allTransactions = await _reportRepo.getTransactions(from: from, to: to);
 
-      String csv = const ListToCsvConverter().convert(csvData);
-      final directory = await getTemporaryDirectory();
-      final path =
-          '${directory.path}/financial_report_${DateTime.now().millisecondsSinceEpoch}.csv';
-      final file = File(path);
-      await file.writeAsString(csv);
+      final filtered = allTransactions.where((t) {
+        final typeMatch = _selectedType == 'all' || t.type == _selectedType;
+        final catMatch = _selectedCategory == 'all' || t.category == _selectedCategory;
+        return typeMatch && catMatch;
+      }).toList();
 
-      await Share.shareXFiles([
-        XFile(path),
-      ], text: t['report_share_message'] ?? 'Financial Report');
+      filtered.sort((a, b) => b.date.compareTo(a.date));
+
+      setState(() {
+        _filteredTransactions = filtered;
+        _showTransactions = true;
+      });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(t['export_error'] ?? 'Error exporting report')),
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _downloadReport() async {
+    if (_filteredTransactions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No data to download')),
+      );
+      return;
+    }
+    try {
+      await _reportRepo.downloadReport(_filteredTransactions);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Download failed: $e')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isTablet = MediaQuery.of(context).size.width > 600;
-    final bool isDesktop = MediaQuery.of(context).size.width > 1200;
-    final bool isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
+    final isTablet = MediaQuery.of(context).size.width > 600;
+    final isDesktop = MediaQuery.of(context).size.width > 1200;
 
     return Scaffold(
       body: LayoutBuilder(
         builder: (context, constraints) {
-          return BlocBuilder<TransactionCubit, List<Transaction>>(
-            builder: (context, transactions) {
-              return BlocBuilder<ProfileCubit, Profile>(
-                builder: (context, profile) {
-                  final expenseByCategory = <String, double>{};
-                  final incomeByCategory = <String, double>{};
+          return BlocBuilder<ProfileCubit, Profile>(
+            builder: (context, profile) {
+              // === TOTALS ===
+              double totalIncome = 0, totalExpense = 0;
+              for (var t in _filteredTransactions) {
+                if (t.type == 'income') totalIncome += t.amount;
+                else totalExpense += t.amount;
+              }
+              final balance = totalIncome - totalExpense;
 
-                  for (var t in transactions) {
-                    if (t.type == 'expense') {
-                      expenseByCategory[t.category] =
-                          (expenseByCategory[t.category] ?? 0) + t.amount;
-                    } else {
-                      incomeByCategory[t.category] =
-                          (incomeByCategory[t.category] ?? 0) + t.amount;
-                    }
-                  }
+              // === GROUP BY CATEGORY (SAFE) ===
+              final grouped = <String, List<Transaction>>{};
+              for (var t in _filteredTransactions) {
+                final cat = (t.category?.trim().isNotEmpty == true) ? t.category! : 'Other';
+                grouped.putIfAbsent(cat, () => []).add(t);
+              }
 
-                  return SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isDesktop
-                          ? 32.w
-                          : isTablet
-                          ? 24.w
-                          : 16.w,
-                      vertical: isDesktop ? 24.h : 16.h,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              final sortedCats = grouped.keys.toList()
+                ..sort((a, b) {
+                  final sumA = grouped[a]!.fold(0.0, (s, t) => s + t.amount);
+                  final sumB = grouped[b]!.fold(0.0, (s, t) => s + t.amount);
+                  return sumB.compareTo(sumA);
+                });
+
+              // === CHARTS (SAFE) ===
+              final expenseByCat = <String, double>{};
+              final incomeByCat = <String, double>{};
+              for (var t in _filteredTransactions) {
+                final cat = (t.category?.trim().isNotEmpty == true) ? t.category! : 'Other';
+                if (t.type == 'expense') {
+                  expenseByCat[cat] = (expenseByCat[cat] ?? 0) + t.amount;
+                } else {
+                  incomeByCat[cat] = (incomeByCat[cat] ?? 0) + t.amount;
+                }
+              }
+
+              return SingleChildScrollView(
+                padding: EdgeInsets.all(16.w),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // HEADER
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        Text(widget.t['reports']!, style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold)),
+                        ElevatedButton.icon(
+                          onPressed: _downloadReport,
+                          icon: Icon(Icons.download),
+                          label: Text(widget.t['download']!),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo[600]),
+                        ),
+                      ],
+                    ),
+
+                    SizedBox(height: 16.h),
+
+                    // TOTAL SUMMARY
+                    Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                      child: Container(
+                        padding: EdgeInsets.all(16.w),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12.r),
+                          gradient: LinearGradient(
+                            colors: widget.isDark ? [Colors.grey[850]!, Colors.grey[900]!] : [Colors.white, Colors.grey[50]!],
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
-                            Flexible(
-                              child: Text(
-                                t['reports']!,
-                                style: TextStyle(
-                                  fontSize: isDesktop
-                                      ? 24.sp
-                                      : isTablet
-                                      ? 22.sp
-                                      : 20.sp,
-                                  fontWeight: FontWeight.bold,
-                                  color: themeData.textTheme.bodyLarge!.color,
-                                ),
-                              ),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () async {
-                                try {
-                                  await _exportToCsv(context, transactions);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Report downloaded successfully',
-                                      ),
-                                    ),
-                                  );
-                                } catch (e) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Error downloading report: $e',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              },
-                              icon: Icon(
-                                Icons.download,
-                                size: isDesktop ? 24.sp : 20.sp,
-                              ),
-                              label: Text(
-                                t['download']!,
-                                style: TextStyle(
-                                  fontSize: isDesktop ? 16.sp : 14.sp,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.indigo[600],
-                                foregroundColor: Colors.white,
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: isDesktop
-                                      ? 24.w
-                                      : isTablet
-                                      ? 20.w
-                                      : 16.w,
-                                  vertical: isDesktop ? 12.h : 8.h,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12.r),
-                                ),
-                              ),
-                            ),
+                            _buildTotalBox('Income', totalIncome, Colors.green, profile),
+                            _buildTotalBox('Expense', totalExpense, Colors.red, profile),
+                            _buildTotalBox('Balance', balance, balance >= 0 ? Colors.blue : Colors.orange, profile),
                           ],
                         ),
-                        SizedBox(height: isDesktop ? 32.h : 24.h),
-                        // Constrain GridView height for charts
-                        SizedBox(
-                          height: isLandscape
-                              ? constraints.maxHeight * 0.5
-                              : constraints.maxHeight * 0.7,
-                          child: GridView.count(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            crossAxisCount: isDesktop
-                                ? 3
-                                : isTablet
-                                ? 2
-                                : 1,
-                            crossAxisSpacing: isDesktop ? 24.w : 16.w,
-                            mainAxisSpacing: isDesktop ? 24.h : 16.h,
-                            childAspectRatio: isDesktop
-                                ? 1.8
-                                : isTablet
-                                ? 1.5
-                                : isLandscape
-                                ? 1.4
-                                : 1.2,
+                      ),
+                    ),
+
+                    SizedBox(height: 24.h),
+
+                    // FILTERS
+                    Container(
+                      padding: EdgeInsets.all(16.w),
+                      decoration: BoxDecoration(
+                        color: widget.isDark ? Colors.grey[850] : Colors.grey[50],
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(color: widget.isDark ? Colors.grey[700]! : Colors.grey[300]!),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildMonthField(),
+                          SizedBox(height: 16.h),
+                          Row(
                             children: [
-                              buildCategoryChart(
-                                expenseByCategory,
-                                expenseByCategory.values.fold(
-                                  0.0,
-                                  (sum, amt) => sum + amt,
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  value: _selectedType,
+                                  decoration: InputDecoration(
+                                    labelText: widget.t['type'] ?? 'Type',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r)),
+                                  ),
+                                  items: [
+                                    DropdownMenuItem(value: 'all', child: Text('All')),
+                                    DropdownMenuItem(value: 'income', child: Text('Income')),
+                                    DropdownMenuItem(value: 'expense', child: Text('Expense')),
+                                  ],
+                                  onChanged: (v) => setState(() => _selectedType = v!),
                                 ),
-                                Colors.red,
-                                profile,
-                                t,
-                                t['expenseByCategory']!,
                               ),
-                              buildCategoryChart(
-                                incomeByCategory,
-                                incomeByCategory.values.fold(
-                                  0.0,
-                                  (sum, amt) => sum + amt,
+                              SizedBox(width: 12.w),
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  value: _selectedCategory,
+                                  decoration: InputDecoration(
+                                    labelText: widget.t['category'] ?? 'Category',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r)),
+                                  ),
+                                  items: _categories.map((c) => DropdownMenuItem(
+                                    value: c,
+                                    child: Text(c == 'all' ? 'All' : c),
+                                  )).toList(),
+                                  onChanged: (v) => setState(() => _selectedCategory = v!),
                                 ),
-                                Colors.green,
-                                profile,
-                                t,
-                                t['incomeByCategory']!,
                               ),
                             ],
                           ),
+                          SizedBox(height: 16.h),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _fetchFilteredData,
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600]),
+                              child: _isLoading
+                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                  : Text(widget.t['show'] ?? 'Show', style: const TextStyle(color: Colors.white)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: 24.h),
+
+                    // CHARTS
+                    if (_showTransactions && _filteredTransactions.isNotEmpty)
+                      SizedBox(
+                        height: 300.h,
+                        child: GridView.count(
+                          shrinkWrap: true,
+                          physics: NeverScrollableScrollPhysics(),
+                          crossAxisCount: isDesktop ? 2 : 1,
+                          childAspectRatio: 1.5,
+                          children: [
+                            buildCategoryChart(
+                              expenseByCat,
+                              expenseByCat.values.fold(0.0, (a, b) => a + b),
+                              Colors.red,
+                              profile,
+                              widget.t,
+                              widget.t['expenseByCategory']!,
+                            ),
+                            buildCategoryChart(
+                              incomeByCat,
+                              incomeByCat.values.fold(0.0, (a, b) => a + b),
+                              Colors.green,
+                              profile,
+                              widget.t,
+                              widget.t['incomeByCategory']!,
+                            ),
+                          ],
                         ),
-                        SizedBox(height: isDesktop ? 32.h : 24.h),
-                        // Transaction cards section
-                        Text(
-                          t['transactions'] ?? 'Transactions',
-                          style: TextStyle(
-                            fontSize: isDesktop ? 20.sp : 18.sp,
-                            fontWeight: FontWeight.bold,
-                            color: themeData.textTheme.bodyLarge!.color,
+                      )
+                    else
+                      Center(
+                        child: Card(
+                          child: Padding(
+                            padding: EdgeInsets.all(24.w),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.bar_chart_outlined, size: 48, color: Colors.grey),
+                                SizedBox(height: 8.h),
+                                Text(widget.t['no_data'] ?? 'No data to display', style: TextStyle(fontSize: 16.sp)),
+                              ],
+                            ),
                           ),
                         ),
-                        SizedBox(height: 16.h),
-                        transactions.isEmpty
-                            ? Center(
-                                child: Text(
-                                  t['no_data'] ?? 'No transactions available',
-                                  style: TextStyle(
-                                    fontSize: isDesktop ? 16.sp : 14.sp,
-                                    color: themeData.textTheme.bodyLarge!.color,
-                                  ),
-                                ),
-                              )
-                            : ListView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: transactions.length,
-                                itemBuilder: (context, index) {
-                                  final transaction = transactions[index];
-                                  return _buildTransactionCard(
-                                    context,
-                                    transaction: transaction,
-                                    isDesktop: isDesktop,
-                                    isTablet: isTablet,
-                                  );
-                                },
+                      ),
+
+                    SizedBox(height: 24.h),
+
+                    // GROUPED TRANSACTIONS
+                    if (_showTransactions)
+                      _filteredTransactions.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.inbox_outlined, size: 64, color: Colors.grey),
+                                  SizedBox(height: 8.h),
+                                  Text(widget.t['no_data'] ?? 'No transactions found'),
+                                ],
                               ),
-                      ],
-                    ),
-                  );
-                },
+                            )
+                          : Column(
+                              children: sortedCats.map((cat) {
+                                final txns = grouped[cat]!;
+                                final total = txns.fold(0.0, (s, t) => s + t.amount);
+                                final isExpanded = _expandedCategories[cat] ?? false;
+
+                                return Card(
+                                  margin: EdgeInsets.symmetric(vertical: 6.h),
+                                  child: Column(
+                                    children: [
+                                      ListTile(
+                                        leading: CircleAvatar(
+                                          backgroundColor: txns.first.type == 'income' ? Colors.green : Colors.red,
+                                          child: Text(cat[0].toUpperCase(), style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                        ),
+                                        title: Text(cat, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.sp)),
+                                        subtitle: Text('${txns.length} items'),
+                                        trailing: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text('${profile.currency}${total.toStringAsFixed(2)}',
+                                                style: TextStyle(fontWeight: FontWeight.bold, color: txns.first.type == 'income' ? Colors.green : Colors.red)),
+                                            Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
+                                          ],
+                                        ),
+                                        onTap: () => setState(() => _expandedCategories[cat] = !isExpanded),
+                                      ),
+                                      if (isExpanded)
+                                        ...txns.map((t) => Padding(
+                                              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(child: Text(t.description ?? '')),
+                                                  Text(t.date, style: TextStyle(fontSize: 12.sp, color: Colors.grey)),
+                                                  SizedBox(width: 8.w),
+                                                  Text('${profile.currency}${t.amount.toStringAsFixed(2)}',
+                                                      style: TextStyle(color: t.type == 'income' ? Colors.green : Colors.red, fontWeight: FontWeight.w500)),
+                                                ],
+                                              ),
+                                            )),
+                                      if (isExpanded) Divider(height: 1),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            )
+                    else
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.bar_chart_outlined, size: 64, color: Colors.grey),
+                            SizedBox(height: 8.h),
+                            Text(widget.t['click_show'] ?? 'Click "Show" to view data'),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
               );
             },
           );
@@ -270,95 +396,46 @@ class ReportsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTransactionCard(
-    BuildContext context, {
-    required Transaction transaction,
-    required bool isDesktop,
-    required bool isTablet,
-  }) {
-    return Card(
-      elevation: 4,
-      margin: EdgeInsets.symmetric(vertical: 8.h, horizontal: 4.w),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-      color: isDark ? themeData.cardColor : Colors.white,
-      child: Padding(
-        padding: EdgeInsets.all(isDesktop ? 16.w : 12.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildTotalBox(String title, double amount, Color color, Profile profile) {
+    return Column(
+      children: [
+        Text(title, style: TextStyle(fontSize: 14.sp, color: Colors.grey[600])),
+        SizedBox(height: 4.h),
+        Text('${profile.currency}${amount.toStringAsFixed(2)}', style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: color)),
+      ],
+    );
+  }
+
+  Widget _buildMonthField() {
+    final monthStr = _selectedMonth != null ? '${_getMonthName(_selectedMonth!.month)} ${_selectedMonth!.year}' : '--';
+    return GestureDetector(
+      onTap: _pickMonth,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+        decoration: BoxDecoration(
+          color: widget.isDark ? Colors.grey[800] : Colors.white,
+          borderRadius: BorderRadius.circular(8.r),
+          border: Border.all(color: Colors.grey[400]!),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  transaction.category,
-                  style: TextStyle(
-                    fontSize: isDesktop
-                        ? 16.sp
-                        : isTablet
-                        ? 15.sp
-                        : 14.sp,
-                    fontWeight: FontWeight.w600,
-                    color: themeData.textTheme.bodyLarge!.color,
-                  ),
-                ),
-                Text(
-                  '\$${transaction.amount.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: isDesktop
-                        ? 16.sp
-                        : isTablet
-                        ? 15.sp
-                        : 14.sp,
-                    fontWeight: FontWeight.bold,
-                    color: transaction.type == 'expense'
-                        ? Colors.red
-                        : Colors.green,
-                  ),
-                ),
+                Text(widget.t['month'] ?? 'Month', style: TextStyle(fontSize: 13.sp, color: Colors.grey)),
+                Text(monthStr, style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w500)),
               ],
             ),
-            SizedBox(height: 8.h),
-            Text(
-              '${t['type'] ?? 'Type'}: ${transaction.type}',
-              style: TextStyle(
-                fontSize: isDesktop
-                    ? 14.sp
-                    : isTablet
-                    ? 13.sp
-                    : 12.sp,
-                color: themeData.textTheme.bodyMedium!.color,
-              ),
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              '${t['date'] ?? 'Date'}: ${transaction.date.split('T')[0]}',
-              style: TextStyle(
-                fontSize: isDesktop
-                    ? 14.sp
-                    : isTablet
-                    ? 13.sp
-                    : 12.sp,
-                color: themeData.textTheme.bodyMedium!.color,
-              ),
-            ),
-            if (transaction.description != null &&
-                transaction.description!.isNotEmpty) ...[
-              SizedBox(height: 4.h),
-              Text(
-                '${t['description'] ?? 'Description'}: ${transaction.description}',
-                style: TextStyle(
-                  fontSize: isDesktop
-                      ? 14.sp
-                      : isTablet
-                      ? 13.sp
-                      : 12.sp,
-                  color: themeData.textTheme.bodyMedium!.color,
-                ),
-              ),
-            ],
+            Icon(Icons.calendar_today, size: 20.sp),
           ],
         ),
       ),
     );
+  }
+
+  String _getMonthName(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
   }
 }
