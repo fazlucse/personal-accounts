@@ -59,7 +59,16 @@ class TransactionRepository {
 
 
   Future<List<Transaction>> getTransactions() async {
-    final List<Map<String, dynamic>> maps = await _database.query('transactions');
+    final now = DateTime.now();
+    final currentMonth = now.month.toString().padLeft(2, '0');
+    final currentYear = now.year.toString();
+
+    final List<Map<String, dynamic>> maps = await _database.query(
+      'transactions',
+      where: "strftime('%m', date) = ? AND strftime('%Y', date) = ?",
+      whereArgs: [currentMonth, currentYear],
+    );
+    // final List<Map<String, dynamic>> maps = await _database.query('transactions');
     final transactions = maps.map((map) => Transaction.fromMap(map)).toList();
 
     // Sync with Firestore

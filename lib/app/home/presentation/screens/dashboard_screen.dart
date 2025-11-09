@@ -39,9 +39,9 @@ class DashboardScreen extends StatelessWidget {
     final width = MediaQuery.of(context).size.width;
 
     if (orientation == Orientation.landscape) {
-      return width > 900 ? 1.5 : 1.8;
+      return width > 900 ? 1.5 : 1.2;
     } else {
-      return width > 600 ? 1.5 : 1.3;
+      return width > 600 ? 1.5 : 1.7;
     }
   }
 
@@ -94,22 +94,22 @@ class DashboardScreen extends StatelessWidget {
                             icon: Icons.trending_down,
                             themeData: themeData,
                           ),
-                          buildStatCard(
-                            title: t['balance']!,
-                            value:
-                                '${profile.currency} ${balance.toStringAsFixed(0)}',
-                            color: Colors.blue,
-                            icon: Icons.account_balance_wallet,
-                            themeData: themeData,
-                          ),
-                          buildStatCard(
-                            title: t['budget']!,
-                            value:
-                                '${profile.currency} ${profile.budget.toStringAsFixed(0)}',
-                            color: Colors.purple,
-                            icon: Icons.pie_chart,
-                            themeData: themeData,
-                          ),
+                          // buildStatCard(
+                          //   title: t['balance']!,
+                          //   value:
+                          //       '${profile.currency} ${balance.toStringAsFixed(0)}',
+                          //   color: Colors.blue,
+                          //   icon: Icons.account_balance_wallet,
+                          //   themeData: themeData,
+                          // ),
+                          // buildStatCard(
+                          //   title: t['budget']!,
+                          //   value:
+                          //       '${profile.currency} ${profile.budget.toStringAsFixed(0)}',
+                          //   color: Colors.purple,
+                          //   icon: Icons.pie_chart,
+                          //   themeData: themeData,
+                          // ),
                         ],
                       );
                     },
