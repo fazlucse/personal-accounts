@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../cubits/profile_cubit.dart';
 import '../cubits/settings_cubit.dart';
+import '../widgets/category_bottom_sheet.dart';
 
 class SettingsScreen extends StatelessWidget {
   final Map<String, String> t;
@@ -20,7 +21,9 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsCubit>().state;
     final profile = context.watch<ProfileCubit>().state;
-    final budgetController = TextEditingController(text: profile.budget.toString());
+    final budgetController = TextEditingController(
+      text: profile.budget.toString(),
+    );
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(16.w),
@@ -32,7 +35,9 @@ class SettingsScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 20.sp,
               fontWeight: FontWeight.bold,
-              color: isDark ? themeData.textTheme.bodyLarge!.color : Colors.black,
+              color: isDark
+                  ? themeData.textTheme.bodyLarge!.color
+                  : Colors.black,
             ),
           ),
           SizedBox(height: 16.h),
@@ -40,7 +45,9 @@ class SettingsScreen extends StatelessWidget {
             t['theme']!,
             style: TextStyle(
               fontSize: 14.sp,
-              color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+              color: isDark
+                  ? themeData.textTheme.bodyMedium!.color
+                  : Colors.black,
             ),
           ),
           DropdownButton<String>(
@@ -51,22 +58,30 @@ class SettingsScreen extends StatelessWidget {
                 context.read<SettingsCubit>().setTheme(value);
               }
             },
-            items: ['light', 'dark'].map((th) => DropdownMenuItem(
-              value: th,
-              child: Text(
-                t[th]!,
-                style: TextStyle(
-                  color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
-                ),
-              ),
-            )).toList(),
+            items: ['light', 'dark']
+                .map(
+                  (th) => DropdownMenuItem(
+                    value: th,
+                    child: Text(
+                      t[th]!,
+                      style: TextStyle(
+                        color: isDark
+                            ? themeData.textTheme.bodyMedium!.color
+                            : Colors.black,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
           ),
           SizedBox(height: 16.h),
           Text(
             t['currency']!,
             style: TextStyle(
               fontSize: 14.sp,
-              color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+              color: isDark
+                  ? themeData.textTheme.bodyMedium!.color
+                  : Colors.black,
             ),
           ),
           DropdownButton<String>(
@@ -83,7 +98,9 @@ class SettingsScreen extends StatelessWidget {
                 child: Text(
                   'BDT - Bangladeshi Taka',
                   style: TextStyle(
-                    color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+                    color: isDark
+                        ? themeData.textTheme.bodyMedium!.color
+                        : Colors.black,
                   ),
                 ),
               ),
@@ -92,7 +109,9 @@ class SettingsScreen extends StatelessWidget {
                 child: Text(
                   'USD - US Dollar',
                   style: TextStyle(
-                    color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+                    color: isDark
+                        ? themeData.textTheme.bodyMedium!.color
+                        : Colors.black,
                   ),
                 ),
               ),
@@ -101,7 +120,9 @@ class SettingsScreen extends StatelessWidget {
                 child: Text(
                   'EUR - Euro',
                   style: TextStyle(
-                    color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+                    color: isDark
+                        ? themeData.textTheme.bodyMedium!.color
+                        : Colors.black,
                   ),
                 ),
               ),
@@ -110,7 +131,9 @@ class SettingsScreen extends StatelessWidget {
                 child: Text(
                   'GBP - British Pound',
                   style: TextStyle(
-                    color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+                    color: isDark
+                        ? themeData.textTheme.bodyMedium!.color
+                        : Colors.black,
                   ),
                 ),
               ),
@@ -121,7 +144,9 @@ class SettingsScreen extends StatelessWidget {
             t['monthlyBudget']!,
             style: TextStyle(
               fontSize: 14.sp,
-              color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+              color: isDark
+                  ? themeData.textTheme.bodyMedium!.color
+                  : Colors.black,
             ),
           ),
           TextField(
@@ -134,7 +159,9 @@ class SettingsScreen extends StatelessWidget {
             t['language']!,
             style: TextStyle(
               fontSize: 14.sp,
-              color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+              color: isDark
+                  ? themeData.textTheme.bodyMedium!.color
+                  : Colors.black,
             ),
           ),
           DropdownButton<String>(
@@ -151,7 +178,9 @@ class SettingsScreen extends StatelessWidget {
                 child: Text(
                   'English',
                   style: TextStyle(
-                    color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+                    color: isDark
+                        ? themeData.textTheme.bodyMedium!.color
+                        : Colors.black,
                   ),
                 ),
               ),
@@ -160,7 +189,9 @@ class SettingsScreen extends StatelessWidget {
                 child: Text(
                   'বাংলা',
                   style: TextStyle(
-                    color: isDark ? themeData.textTheme.bodyMedium!.color : Colors.black,
+                    color: isDark
+                        ? themeData.textTheme.bodyMedium!.color
+                        : Colors.black,
                   ),
                 ),
               ),
@@ -186,6 +217,24 @@ class SettingsScreen extends StatelessWidget {
               minimumSize: Size(double.infinity, 48.h),
             ),
             child: Text(t['save']!),
+          ),
+          SizedBox(height: 16.h),
+          ElevatedButton.icon(
+            onPressed: () {
+              showCategoryBottomSheet(
+                context: context,
+                t: t,
+                isDark: isDark,
+                themeData: themeData,
+              );
+            },
+            icon: const Icon(Icons.category),
+            label: Text(t['manageCategories'] ?? 'Manage Categories'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal[600],
+              foregroundColor: Colors.white,
+              minimumSize: Size(double.infinity, 48.h),
+            ),
           ),
         ],
       ),
