@@ -53,11 +53,12 @@ class _CategoryDropdownState extends State<CategoryDropdown> {
   void _showCategoryPicker(BuildContext context) {
     final TextEditingController searchController = TextEditingController();
     List<String> filteredCategories = List.from(allCategories);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).cardColor,
+      backgroundColor: isDark ? Colors.grey[900] : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
       ),
@@ -91,22 +92,22 @@ class _CategoryDropdownState extends State<CategoryDropdown> {
                                 .toList();
                           });
                         },
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                         decoration: InputDecoration(
-                          hintText: widget.translations['search'] ??
-                              'Search category...',
-                          prefixIcon: const Icon(Icons.search),
+                          hintText: widget.translations['search'] ?? 'Search category...',
+                          hintStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                          prefixIcon: Icon(Icons.search, color: isDark ? Colors.white : Colors.black54),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12.r),
                           ),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 10.w,
-                            vertical: 10.h,
-                          ),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.h),
+                          fillColor: isDark ? Colors.grey[850] : Colors.grey[100],
+                          filled: true,
                         ),
                       ),
                       SizedBox(height: 12.h),
 
-                      // 📋 Scrollable Category List with border for each item
+                      // 📋 Scrollable Category List
                       Expanded(
                         child: ListView.builder(
                           controller: scrollController,
@@ -125,21 +126,22 @@ class _CategoryDropdownState extends State<CategoryDropdown> {
                                 },
                                 borderRadius: BorderRadius.circular(12.r),
                                 child: Container(
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 12.w, vertical: 12.h),
-                                 decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-  color: Colors.grey.shade200.withOpacity(0.6),
-  width: 0.8, // slightly thicker
-    ),
-            ),
-          ),
+                                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? Colors.grey[850] : Colors.white,
+                                    borderRadius: BorderRadius.circular(12.r),
+                                    border: Border(
+                                      bottom: BorderSide(
+                                        color: isDark ? Colors.grey[700]! : Colors.grey.shade200,
+                                        width: 0.5,
+                                      ),
+                                    ),
+                                  ),
                                   child: Text(
                                     widget.translations[cat] ?? cat,
                                     style: TextStyle(
-                                      fontSize:
-                                          widget.isTablet ? 16.sp : 14.sp,
+                                      fontSize: widget.isTablet ? 16.sp : 14.sp,
+                                      color: isDark ? Colors.white : Colors.black87,
                                     ),
                                   ),
                                 ),
@@ -156,8 +158,8 @@ class _CategoryDropdownState extends State<CategoryDropdown> {
                         width: double.infinity,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey[300],
-                            foregroundColor: Colors.black87,
+                            backgroundColor: isDark ? Colors.grey[700] : Colors.grey[300],
+                            foregroundColor: isDark ? Colors.white : Colors.black87,
                             padding: EdgeInsets.symmetric(vertical: 12.h),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8.r),
@@ -188,31 +190,42 @@ class _CategoryDropdownState extends State<CategoryDropdown> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
+    final isDark = theme.brightness == Brightness.dark;
 
     return GestureDetector(
       onTap: () => _showCategoryPicker(context),
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8.r),
-          border: Border.all(color: Colors.grey[400]!),
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: isDark ? Colors.grey[700]! : Colors.grey[300]!),
+          color: isDark ? Colors.grey[900] : Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: isDark ? Colors.black26 : Colors.black12,
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              selectedCategory ??
-                  (widget.translations['selectCategory'] ?? 'Select Category'),
-              style: textTheme.bodyMedium?.copyWith(
-                fontSize: widget.isTablet ? 16.sp : 14.sp,
-                color: selectedCategory == null
-                    ? Colors.grey
-                    : theme.textTheme.bodyMedium?.color ??
-                        theme.colorScheme.onSurface,
+            Expanded(
+              child: Text(
+                selectedCategory ?? (widget.translations['selectCategory'] ?? 'Select Category'),
+                style: TextStyle(
+                  fontSize: widget.isTablet ? 16.sp : 14.sp,
+                  color: selectedCategory == null
+                      ? Colors.grey
+                      : isDark
+                          ? Colors.white
+                          : Colors.black87,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            const Icon(Icons.arrow_drop_down),
+            Icon(Icons.arrow_drop_down, color: isDark ? Colors.white : Colors.black87),
           ],
         ),
       ),

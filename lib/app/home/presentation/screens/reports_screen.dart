@@ -799,142 +799,145 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-void _showDropdownWithSearch({
-  required String label,
-  required String value,
-  required List<Map<String, String>> items,
-  required void Function(String?) onChanged,
-}) {
-  final TextEditingController searchController = TextEditingController();
-  List<Map<String, String>> filteredItems = List.from(items);
+  void _showDropdownWithSearch({
+    required String label,
+    required String value,
+    required List<Map<String, String>> items,
+    required void Function(String?) onChanged,
+  }) {
+    final TextEditingController searchController = TextEditingController();
+    List<Map<String, String>> filteredItems = List.from(items);
 
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Theme.of(context).cardColor,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
-    ),
-    builder: (context) {
-      return DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        minChildSize: 0.3,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) {
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-              left: 16.w,
-              right: 16.w,
-              top: 16.h,
-            ),
-            child: StatefulBuilder(
-              builder: (context, setState) => Column(
-                children: [
-                  // 🔍 Search Field (pinned)
-                  TextField(
-                    controller: searchController,
-                    onChanged: (query) {
-                      setState(() {
-                        filteredItems = items
-                            .where((i) => i['label']!
-                                .toLowerCase()
-                                .contains(query.toLowerCase()))
-                            .toList();
-                      });
-                    },
-                    decoration: InputDecoration(
-                      hintText: 'Search $label...',
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 12.w,
-                        vertical: 10.h,
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.5,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 16.w,
+                right: 16.w,
+                top: 16.h,
+              ),
+              child: StatefulBuilder(
+                builder: (context, setState) => Column(
+                  children: [
+                    // 🔍 Search Field (pinned)
+                    TextField(
+                      controller: searchController,
+                      onChanged: (query) {
+                        setState(() {
+                          filteredItems = items
+                              .where(
+                                (i) => i['label']!.toLowerCase().contains(
+                                  query.toLowerCase(),
+                                ),
+                              )
+                              .toList();
+                        });
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Search $label...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 10.h,
+                        ),
                       ),
                     ),
-                  ),
-                  SizedBox(height: 12.h),
+                    SizedBox(height: 12.h),
 
-                  // 📋 Scrollable List
-                  Expanded(
-                    child: filteredItems.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No $label found',
-                              style: TextStyle(fontSize: 14.sp),
-                            ),
-                          )
-                        : ListView.builder(
-                            controller: scrollController,
-                            itemCount: filteredItems.length,
-                            itemBuilder: (context, index) {
-                              final item = filteredItems[index];
-                              return InkWell(
-                                onTap: () {
-                                  onChanged(item['value']);
-                                  Navigator.pop(context);
-                                },
-                                child: Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 12.w,
-                                    vertical: 12.h,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                      bottom: BorderSide(
-                                        color: Colors.grey.shade200.withOpacity(0.6),
-  width: 0.8, // slightly thicker
+                    // 📋 Scrollable List
+                    Expanded(
+                      child: filteredItems.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No $label found',
+                                style: TextStyle(fontSize: 14.sp),
+                              ),
+                            )
+                          : ListView.builder(
+                              controller: scrollController,
+                              itemCount: filteredItems.length,
+                              itemBuilder: (context, index) {
+                                final item = filteredItems[index];
+                                return InkWell(
+                                  onTap: () {
+                                    onChanged(item['value']);
+                                    Navigator.pop(context);
+                                  },
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 12.w,
+                                      vertical: 12.h,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        bottom: BorderSide(
+                                          color: Colors.grey.shade200
+                                              .withOpacity(0.6),
+                                          width: 0.8, // slightly thicker
+                                        ),
                                       ),
                                     ),
+                                    child: Text(
+                                      item['label']!,
+                                      style: TextStyle(fontSize: 14.sp),
+                                    ),
                                   ),
-                                  child: Text(
-                                    item['label']!,
-                                    style: TextStyle(fontSize: 14.sp),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                  ),
+                                );
+                              },
+                            ),
+                    ),
 
-                  // 🚫 Cancel Button
-                  SafeArea(
-                    top: false,
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.grey[300],
-                          foregroundColor: Colors.black87,
-                          padding: EdgeInsets.symmetric(vertical: 12.h),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.r),
+                    // 🚫 Cancel Button
+                    SafeArea(
+                      top: false,
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey[300],
+                            foregroundColor: Colors.black87,
+                            padding: EdgeInsets.symmetric(vertical: 12.h),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8.r),
+                            ),
                           ),
-                        ),
-                        onPressed: () => Navigator.pop(context),
-                        child: Text(
-                          'Cancel',
-                          style: TextStyle(
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w500,
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  SizedBox(height: 8.h),
-                ],
+                    SizedBox(height: 8.h),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+            );
+          },
+        );
+      },
+    );
+  }
 
   String _getMonthName(int month) {
     const months = [
